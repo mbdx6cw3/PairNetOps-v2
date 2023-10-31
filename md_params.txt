@@ -1,0 +1,27 @@
+# temperature (Kelvin)
+temp = 300
+
+# ensemble (nve or nvt)
+ensemble = nvt
+
+# thermostat (langevin or nose_hoover)
+thermostat = nose_hoover
+coll_freq = 50
+
+# timestep (picoseconds)
+ts = 0.001
+
+# number of steps
+n_steps = 11000000
+
+# frequency of output printing
+print_trj = 1000
+print_data = 1000
+print_summary = 1000
+
+# minimisation
+minim = True
+
+# metadynamics?
+bias = True
+

@@ -1,0 +1,7 @@
+%chk=./gau_temp_index/mol_chk.chk
+%mem=3500MB
+#p pop=mk b3lyp/6-31g* empiricaldispersion=gd3 int(ultrafine) opt=modredundant
+
+paracetamol
+
+0  1 
