@@ -17,7 +17,7 @@ def gau2ml(set_size, step, input_dir, output_dir, perm):
     with open(f"./nuclear_charges.txt", "r") as nuclear_charge_file:
         n_atom = len(nuclear_charge_file.readlines())
 
-    # read in all symmetry equivalent atoms/groups
+    # read in all symmetry equivalent atoms/groups ...
     if perm:
         with open(f"./permutations.txt", "r") as perm_file:
             max_atm = 10
