@@ -52,10 +52,6 @@ class dataset():
                 * self.n_atom), (set_size, self.n_atom, 3))
             self.charges = np.reshape(np.loadtxt(file_list[4], max_rows=set_size
                 * self.n_atom), (set_size, self.n_atom))
-            # convert OpenMM units into standard units
-            if input == "md":
-                self.energies = self.energies / 4.184 # kJ/mol -> kcal/mol
-                self.forces = self.forces / 4.184 / 10.0 # kJ/mol/nm -> kcal/mol/A
         mol.get_ZCFE(self)  # populate molecule class
 
         return None

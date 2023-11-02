@@ -94,7 +94,7 @@ def prescale_e(mol, energies, forces):
     mol.energies = ((max_f-min_f)*(mol.orig_energies-min_e)/(max_e-min_e)+min_f)
     return prescale
 
-def prescale_q(mol, prescale):
+def prescale_eij(mol, prescale):
     n_atoms = len(mol.atoms)
     n_pairs = int(n_atoms * (n_atoms - 1) / 2)
     input_NRF = mol.mat_NRF.reshape(-1, n_pairs)
@@ -104,7 +104,7 @@ def prescale_q(mol, prescale):
     prescale[5] = np.max(np.abs(trainval_output_eij))
     return prescale
 
-def get_pairs(mol, set_size, output_dir):
+def get_eij(mol, set_size, output_dir):
     '''Get decomposed energies and forces from the same simultaneous equation'''
 
     n_atoms = len(mol.atoms)

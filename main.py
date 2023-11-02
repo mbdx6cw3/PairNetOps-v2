@@ -10,7 +10,7 @@ __status__ = 'Development'
 def main():
     import qm2ml, analyseQM, query_external, openMM, read_inputs, output,\
         analyseMD
-    import os, shutil, sys
+    import os, shutil
     import numpy as np
     from network import Network
     from datetime import datetime
@@ -61,14 +61,17 @@ def main():
             pairfenet = False
             ani = True
 
-        plat = str(input("""OpenCL or CPU?
+        plat = str(input("""GPU or CPU?
             > """))
+        if plat == "GPU":
+            plat = "OpenCL"
 
         # setup simulation
-        simulation, output_dir, md_params, gro, force = openMM.setup(pairfenet,ani,plat)
+        simulation, output_dir, md_params, gro, force = \
+            openMM.setup(pairfenet, ani, plat)
 
         # run simulation
-        openMM.MD(simulation, pairfenet, output_dir, md_params, gro, force)
+        openMM.MD(simulation, pairfenet, ani, output_dir, md_params, gro, force)
 
         print(datetime.now() - startTime)
 
@@ -235,7 +238,7 @@ def main():
         elif option_flag == 2:
             mol.orig_energies = np.copy(mol.energies)
             analyseQM.prescale_e(mol, mol.energies, mol.forces)
-            analyseQM.get_pairs(mol, set_size, output_dir)
+            analyseQM.get_eij(mol, set_size, output_dir)
             recomb_F = analyseQM.get_forces(mol, mol.coords, mol.mat_FE)
             np.savetxt(f"./{output_dir}/recomb_test.dat", np.column_stack((
                 mol.forces.flatten(), recomb_F.flatten())), delimiter=" ", fmt="%.6f")
@@ -408,6 +411,7 @@ def main():
             mol.trainval = [*range(0, n_train + n_val, 1)]
             trainval_forces = np.take(mol.forces, mol.trainval, axis=0)
             trainval_energies = np.take(mol.energies, mol.trainval, axis=0)
+            trainval_charges = np.take(mol.charges, mol.trainval, axis=0)
             prescale = analyseQM.prescale_e(mol, trainval_energies,
                                             trainval_forces)
 
@@ -421,12 +425,12 @@ def main():
                 os.makedirs(output_dir2)
             shutil.copy2(f"./ann_params.txt", f"./{output_dir2}")
 
-            # get q-values from molecular energies and Cartesian atomic forces
-            analyseQM.get_pairs(mol, set_size, output_dir1)
+            # pairwise decomposition of energies
+            analyseQM.get_eij(mol, set_size, output_dir1)
 
             # build model if not training from scratch
             if not ann_load:
-                prescale = analyseQM.prescale_q(mol, prescale)
+                prescale = analyseQM.prescale_eij(mol, prescale)
                 print("Building model...")
                 model = network.build(len(mol.atoms), ann_params, prescale)
                 model.summary()
@@ -448,7 +452,7 @@ def main():
         if ann_test:
             mol.test = [*range(n_train + n_val, set_size, 1)]
             if ann_load:
-                analyseQM.get_pairs(mol, set_size, output_dir1)
+                analyseQM.get_eij(mol, set_size, output_dir1)
 
             print("Testing model...")
             network.test(model, mol, output_dir1)

@@ -3,13 +3,14 @@ from openmm import *
 from openmm.unit import *
 from openmmplumed import PlumedForce
 from openmmtools import integrators
-from sys import stdout
 import numpy as np
 import output, plumed, read_inputs, os, shutil
 from openmmml import MLPotential
 from network import Network
 import tensorflow as tf
 from tensorflow.keras import backend
+
+#TODO: can unused modules be removed?
 
 def setup(pairfenet, ani, plat):
 
@@ -39,6 +40,7 @@ def setup(pairfenet, ani, plat):
     top = GromacsTopFile(f"{input_dir}/input.top",
         periodicBoxVectors=gro.getPeriodicBoxVectors())
     n_atoms = len(gro.getPositions())
+
     if ani:
         potential = MLPotential('ani2x')
         system = potential.createSystem(top.topology)
@@ -76,7 +78,6 @@ def setup(pairfenet, ani, plat):
         system.addForce(PlumedForce(plumed_script))
 
     # set up simulation
-    print(platform)
     simulation = Simulation(top.topology, system, integrator, platform)
     simulation.context.setPositions(gro.positions)
 
@@ -86,7 +87,7 @@ def setup(pairfenet, ani, plat):
 
     return simulation, output_dir, md_params, gro, force
 
-def MD(simulation, pairfenet, output_dir, md_params, gro, force):
+def MD(simulation, pairfenet, ani, output_dir, md_params, gro, force):
 
     n_steps = md_params["n_steps"]
     print_trj = md_params["print_trj"]
@@ -119,6 +120,9 @@ def MD(simulation, pairfenet, output_dir, md_params, gro, force):
         reportInterval=print_summary,step=True, time=True, potentialEnergy=True,
         kineticEnergy=True, temperature=True, separator=" "))
 
+    # this prevents tensorflow printing warnings or other information
+    tf.get_logger().setLevel('ERROR')
+
     f1 = open(f"./{output_dir}/coords.txt", 'w')
     f2 = open(f"./{output_dir}/forces.txt", 'w')
     f3 = open(f"./{output_dir}/velocities.txt", 'w')
@@ -134,7 +138,8 @@ def MD(simulation, pairfenet, output_dir, md_params, gro, force):
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
             prediction = model.predict([np.reshape(coords, (1, -1, 3)),
-                                        np.reshape(atoms,(1, -1))])
+                                        np.reshape(atoms,(1, -1))], verbose=0)
+            # predict forces and convert to kJ/mol/nm^2 (internal OpenMM units)
             forces = prediction[0] * kilocalories_per_mole / angstrom
             forces = np.reshape(forces, (-1, 3))
             for j in range(n_atoms):
@@ -145,14 +150,17 @@ def MD(simulation, pairfenet, output_dir, md_params, gro, force):
             time = simulation.context.getState().getTime()
             velocities = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True)
-            forces = simulation.context.getState(getForces=True).\
-                getForces(asNumpy=True)
+            # if not using pairfenet convert forces to kcal/mol/A before printing
+            if pairfenet == False:
+                forces = simulation.context.getState(getForces=True).\
+                    getForces(asNumpy=True).in_units_of(kilocalories_per_mole/angstrom)
             state = simulation.context.getState(getEnergy=True)
 
+            # predicts energies in kcal/mol
             if pairfenet == True:
-                PE = prediction[2][0][0]
+                PE = prediction[1][0][0]
             else:
-                PE = state.getPotentialEnergy() / kilojoule_per_mole
+                PE = state.getPotentialEnergy() / kilocalories_per_mole
 
             np.savetxt(f1, coords[:n_atoms])
             np.savetxt(f2, forces[:n_atoms])

@@ -10,10 +10,9 @@ from tensorflow.keras.layers import Input, Dense, Layer, Dropout
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras import backend as K
-from tensorflow.keras import regularizers
 import tensorflow as tf
-import sys, time, os
-import output, analyseQM
+import time
+import output
 
 start_time = time.time()
 
@@ -46,10 +45,12 @@ class CoordsToNRF(Layer):
         # TODO: this can be removed
         self.au2kcalmola = 627.5095 * 0.529177
 
+
     def compute_output_shape(self, input_shape):
         batch_size = input_shape[0]
         n_atoms = input_shape[1]
         return (batch_size, n_atoms, self._NC2)
+
 
     def call(self, coords_nc):
         coords, atom_nc = coords_nc
@@ -66,16 +67,15 @@ class CoordsToNRF(Layer):
         r = diff_flat ** 0.5
         recip_r2 = 1 / r ** 2
         # TODO: this can be removed and simplified - make consistent with other
-        _NRF = (((atom_nc * self.au2kcalmola) * recip_r2) /
-                self.max_NRF) #scaled
+        _NRF = (((atom_nc * self.au2kcalmola) * recip_r2) / self.max_NRF) #scaled
         _NRF = tf.reshape(_NRF,
                 shape=(tf.shape(coords)[0], self._NC2)) #reshape to _NC2
         return _NRF
 
 
-class Energy(Layer):
+class E(Layer):
     def __init__(self, prescale, **kwargs):
-        super(Energy, self).__init__()
+        super(E, self).__init__()
         self.prescale = prescale
 
     def compute_output_shape(self, input_shape):
@@ -130,21 +130,19 @@ class ERecomposition(Layer):
         tri = tf.linalg.band_part(diff2, -1, 0) #lower
         nonzero_indices = tf.where(tf.not_equal(tri, tf.zeros_like(tri)))
         nonzero_values = tf.gather_nd(tri, nonzero_indices)
-        diff_flat = tf.reshape(nonzero_values,
-                shape=(tf.shape(tri)[0], -1)) # reshape to _NC2
+        diff_flat = tf.reshape(nonzero_values, shape=(tf.shape(tri)[0], -1))
         r_flat = diff_flat**0.5
         recip_r_flat = 1 / r_flat
-        norm_recip_r = tf.reduce_sum(recip_r_flat ** 2, axis=1,
-                keepdims=True) ** 0.5
+        norm_recip_r = tf.reduce_sum(recip_r_flat ** 2, axis=1,keepdims=True)**0.5
         eij_E = recip_r_flat / norm_recip_r
         recompE = tf.einsum('bi, bi -> b', eij_E, decompFE)
         recompE = tf.reshape(recompE, shape=(tf.shape(coords)[0], 1))
         return recompE
 
 
-class Force(Layer):
+class F(Layer):
     def __init__(self, n_atoms, _NC2, **kwargs):
-        super(Force, self).__init__()
+        super(F, self).__init__()
         self.n_atoms = n_atoms
         self._NC2 = _NC2
 
@@ -156,6 +154,20 @@ class Force(Layer):
         E, coords = E_coords
         gradients = tf.gradients(E, coords, unconnected_gradients='zero')
         return gradients[0] * -1
+
+class Q(Layer):
+    def __init__(self, n_atoms, **kwargs):
+        super(Q, self).__init__()
+        self.n_atoms = n_atoms
+
+    def compute_output_shape(self, input_shape):
+        batch_size = input_shape[0]
+        return (batch_size, self.n_atoms)
+
+    def call(self, predicted_q):
+        # calculate corrected charges by subtracting net charge from all predicted charges
+        #corrected_q = predicted_q - (tf.reduce_sum(predicted_q,0) / self.n_atoms)
+        return predicted_q
 
 
 class Network(object):
@@ -175,10 +187,8 @@ class Network(object):
         val_energies = np.take(mol.orig_energies, mol.val, axis=0)
         train_forces = np.take(mol.forces, mol.train, axis=0)
         val_forces = np.take(mol.forces, mol.val, axis=0)
-        train_output_eij = np.take(mol.output_eij, mol.train, axis=0)
-        val_output_eij = np.take(mol.output_eij, mol.val, axis=0)
-        #trains_charges = np.take(mol.charges, mol.train, axis=0)
-        #val_charges = np.take(mol.charges, mol.val, axis=0)
+        train_charges = np.take(mol.charges, mol.train, axis=0)
+        val_charges = np.take(mol.charges, mol.val, axis=0)
 
         # create arrays of nuclear charges for different sets
         train_atoms = np.tile(atoms, (len(train_coords), 1))
@@ -202,10 +212,10 @@ class Network(object):
         optimizer = keras.optimizers.Adam(learning_rate=init_lr,
                 beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
 
-        # define loss function, TODO: add charges - replace eij weight
-        model.compile(loss={'force': 'mse', 'eij': 'mse', 'energy': 'mse'},
-            loss_weights={'force': loss_weights[0], 'eij': loss_weights[1],
-            'energy': loss_weights[2]}, optimizer=optimizer)
+        # define loss function
+        model.compile(loss={'f': 'mse', 'e': 'mse', 'q': 'mse'},
+            loss_weights={'f': loss_weights[0], 'e': loss_weights[1], 'q':
+                          loss_weights[2]},optimizer=optimizer)
 
         # print out the model here
         model.summary()
@@ -213,19 +223,19 @@ class Network(object):
 
         # train the network
         result = model.fit([train_coords, train_atoms],
-            [train_forces, train_output_eij, train_energies],
+            [train_forces, train_energies, train_charges],
             validation_data=([val_coords, val_atoms], [val_forces,
-            val_output_eij, val_energies,]), epochs=epochs,
+            val_energies,val_charges]), epochs=epochs,
             verbose=2, batch_size=batch_size,callbacks=[mc,rlrop])
 
         # plot loss curves
         model_loss = result.history['loss']
         model_val_loss = result.history['val_loss']
         np.savetxt(f"./{output_dir1}/loss.dat", np.column_stack((np.arange
-            (epochs), result.history['force_loss'], result.history['eij_loss'],
-            result.history['energy_loss'], result.history['loss'],
-            result.history['val_force_loss'], result.history['val_eij_loss'],
-            result.history['val_energy_loss'],result.history['val_loss'] )),
+            (epochs), result.history['f_loss'], result.history['e_loss'],
+            result.history['q_loss'], result.history['loss'],
+            result.history['val_f_loss'], result.history['val_e_loss'],
+            result.history['val_q_loss'], result.history['val_loss'] )),
             delimiter=" ", fmt="%.6f")
         output.twolineplot(np.arange(epochs),np.arange(epochs),model_loss,
             model_val_loss, "training loss", "validation loss", "linear",
@@ -240,21 +250,10 @@ class Network(object):
         atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
         test_coords = np.take(mol.coords, mol.test, axis=0)
         test_atoms = np.tile(atoms, (len(test_coords), 1))
-        test_output_eij = np.take(mol.output_eij, mol.test, axis=0)
         test_prediction = model.predict([test_coords, test_atoms])
 
         print(f"\nErrors over {len(mol.test)} test structures")
         print(f"                MAE            RMS            MSD          MSE")
-
-        # q test output
-        mae, rms, msd = Network.summary(test_output_eij.flatten(),
-                test_prediction[1].flatten())
-        print(f"eij: {mae}    {rms}    {msd}    {rms ** 2}")
-        output.scurve(test_output_eij.flatten(), test_prediction[1].flatten(),
-            output_dir, "eij_scurve")
-        np.savetxt(f"./{output_dir}/eij_test.dat", np.column_stack((
-            test_output_eij.flatten(), test_prediction[1].flatten())),
-            delimiter=" ", fmt="%.6f")
 
         # force test output
         test_output_F = np.take(mol.forces, mol.test, axis=0)
@@ -270,16 +269,31 @@ class Network(object):
         # energy test output
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)
         mae, rms, msd = Network.summary(test_output_E.flatten(),
-                test_prediction[2].flatten())
+                test_prediction[1].flatten())
         print(f"Energy:   {mae}    {rms}    {msd}    {rms ** 2}")
-        output.scurve(test_output_E.flatten(), test_prediction[2].flatten(),
+        output.scurve(test_output_E.flatten(), test_prediction[1].flatten(),
             output_dir, "e_scurve")
         np.savetxt(f"./{output_dir}/e_test.dat", np.column_stack((
-            test_output_E.flatten(), test_prediction[2].flatten())),
+            test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
 
-        # charge test output
+        # correct charge predictions so that there is no net charge
+        # TODO: this will need updating if we want to charged species
+        corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
+        for s in range(len(test_output_E)):
+            for atm in range(mol.n_atom):
+                corr_prediction[s][atm] = test_prediction[2][s][atm] - sum(test_prediction[2][s])
 
+        # charge test output
+        test_output_q = np.take(mol.charges, mol.test, axis=0)
+        mae, rms, msd = Network.summary(test_output_q.flatten(),
+                corr_prediction.flatten())
+        print(f"Charge:    {mae}    {rms}    {msd}    {rms**2}")
+        output.scurve(test_output_q.flatten(), corr_prediction.flatten(),
+            output_dir, "q_scurve")
+        np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
+            test_output_q.flatten(), corr_prediction.flatten(),
+            test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
 
         return None
 
@@ -323,31 +337,35 @@ class Network(object):
                 name='net_layerA{}'.format(l))(connected_layer)
             connected_layer = net_layer
 
-        # output layer
-        connected_layer = Dense(units=n_pairs, activation="linear",
-            name='net_layerQ')(connected_layer)
+        # output layer for interatomic pairwise energy components
+        output_layer1 = Dense(units=n_pairs, activation="linear",
+            name='net_layer_n_pair')(connected_layer)
 
-        # calculated unscaled q's
+        # output layer for uncorrected predicted charges
+        output_layer2 = Dense(units=n_atoms, activation="linear",
+            name='net_layer_n_atm')(connected_layer)
+
+        # calculated unscaled interatomic energies
         unscale_qFE_layer = Eij(n_pairs, max_matFE, name='unscale_qF_layer')\
-            (connected_layer)
+            (output_layer1)
 
         # calculate the scaled energy from the coordinates and unscaled qFE
         E_layer = ERecomposition(n_atoms, n_pairs, name='qFE_layer')\
             ([coords_layer, unscale_qFE_layer])
 
         # calculate the unscaled energy
-        unscaleE_layer = Energy(prescale, name='unscaleE_layer')(E_layer)
+        energy = E(prescale, name='energy')(E_layer)
 
         # obtain the forces by taking the gradient of the energy
-        dE_dx = Force(n_atoms, n_pairs, name='dE_dx')\
-            ([unscaleE_layer, coords_layer])
+        force = F(n_atoms, n_pairs, name='force')([energy, coords_layer])
 
-        # another layer here for charges summation / removal of excess charge
+        # remove excess charge to obtain corrected charges
+        charge = Q(n_atoms,name='charge')(output_layer2)
 
         # define the input layers and output layers used in the loss function
         model = Model(
                 inputs=[coords_layer, nuclear_charge_layer],
-                outputs=[dE_dx, unscale_qFE_layer, unscaleE_layer],
+                outputs=[force, energy, charge],
                 )
 
         return model
