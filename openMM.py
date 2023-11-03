@@ -8,11 +8,10 @@ import output, plumed, read_inputs, os, shutil
 from openmmml import MLPotential
 from network import Network
 import tensorflow as tf
-from tensorflow.keras import backend
 
 #TODO: can unused modules be removed?
 
-def setup(pairfenet, ani, plat):
+def setup(pairfenet, ani2x, empirical, plat):
 
     input_dir = "md_input"
     isExist = os.path.exists(input_dir)
@@ -41,11 +40,17 @@ def setup(pairfenet, ani, plat):
         periodicBoxVectors=gro.getPeriodicBoxVectors())
     n_atoms = len(gro.getPositions())
 
-    if ani:
+    # TODO: set up of ML/MM system. mixed system: https://github.com/openmm/openmm-ml
+    if ani2x:
         potential = MLPotential('ani2x')
         system = potential.createSystem(top.topology)
     else:
         system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer)
+
+    # define non-bonded force which contains empirical potential parameters
+    #nb_force = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+    #for i in range(system.getNumParticles()):
+    #    print(nb_force.getParticleParameters(i))
 
     # for MLP define custom external force and set initial forces to zero
     if pairfenet == True:
@@ -56,8 +61,8 @@ def setup(pairfenet, ani, plat):
         force.addPerParticleParameter("fz")
         for j in range(n_atoms):
             force.addParticle(j, (0, 0, 0))
-    elif pairfenet == False:
-        force = 0
+    elif empirical == True or ani2x == True:
+        force = 0 # no custom force, i.e. just use potential as defined in .top
 
     # define ensemble, thermostat and integrator
     if ensemble == "nve":
@@ -87,7 +92,7 @@ def setup(pairfenet, ani, plat):
 
     return simulation, output_dir, md_params, gro, force
 
-def MD(simulation, pairfenet, ani, output_dir, md_params, gro, force):
+def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, force):
 
     n_steps = md_params["n_steps"]
     print_trj = md_params["print_trj"]
@@ -102,7 +107,6 @@ def MD(simulation, pairfenet, ani, output_dir, md_params, gro, force):
         if not isExist:
             print("Error - previously trained model could not be located.")
             exit()
-
         print("Loading a trained model...")
         prescale = np.loadtxt(f"./{input_dir}/prescale.txt",
                           dtype=np.float32).reshape(-1)
@@ -127,33 +131,45 @@ def MD(simulation, pairfenet, ani, output_dir, md_params, gro, force):
     f2 = open(f"./{output_dir}/forces.txt", 'w')
     f3 = open(f"./{output_dir}/velocities.txt", 'w')
     f4 = open(f"./{output_dir}/energies.txt", 'w')
+    f5 = open(f"./{output_dir}/charges.txt", 'w')
 
     # loop through total number of timesteps
     for i in range(n_steps):
+        # TODO: dynamically reassign charges
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
         if pairfenet == True:
-            # clear session every 1000 steps to avoid running out of memory
+
+            # clear session to avoid running out of memory
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
+
+            # predict forces and convert to internal OpenMM units
             prediction = model.predict([np.reshape(coords, (1, -1, 3)),
                                         np.reshape(atoms,(1, -1))], verbose=0)
-            # predict forces and convert to kJ/mol/nm^2 (internal OpenMM units)
-            forces = prediction[0] * kilocalories_per_mole / angstrom
-            forces = np.reshape(forces, (-1, 3))
+            #forces = prediction[0] * kilocalories_per_mole / angstrom
+            forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom, (-1, 3))
+
+            # assign forces to ML atoms
             for j in range(n_atoms):
                 force.setParticleParameters(j, j, forces[j])
             force.updateParametersInContext(simulation.context)
+
+            # assign charges to ML atoms
+            charges = np.zeros(n_atoms)
 
         if (i % print_data) == 0 or i == 0:
             time = simulation.context.getState().getTime()
             velocities = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True)
+
             # if not using pairfenet convert forces to kcal/mol/A before printing
             if pairfenet == False:
                 forces = simulation.context.getState(getForces=True).\
                     getForces(asNumpy=True).in_units_of(kilocalories_per_mole/angstrom)
+                # TODO: reassign charges using prediction from trained network
+                # charges = nb_force.getParticleParameters(0)???
             state = simulation.context.getState(getEnergy=True)
 
             # predicts energies in kcal/mol
@@ -166,6 +182,7 @@ def MD(simulation, pairfenet, ani, output_dir, md_params, gro, force):
             np.savetxt(f2, forces[:n_atoms])
             np.savetxt(f3, velocities[:n_atoms])
             f4.write(f"{PE}\n")
+            np.savetxt(f5, charges[:n_atoms])
 
         if (i % print_trj) == 0 or i == 0:
             output.gro(n_atoms, vectors, time/picoseconds, coords/nanometer,

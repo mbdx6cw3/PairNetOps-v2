@@ -50,14 +50,17 @@ def main():
 
         if option_flag == 1:
             print("Use empirical potential.")
+            empirical = True
             pairfenet = False
             ani = False
         elif option_flag == 2:
             print("Use PairFENet potential.")
+            empirical = False
             pairfenet = True
             ani = False
         elif option_flag == 3:
             print("Use ANI.")
+            empirical = False
             pairfenet = False
             ani = True
 
@@ -68,10 +71,11 @@ def main():
 
         # setup simulation
         simulation, output_dir, md_params, gro, force = \
-            openMM.setup(pairfenet, ani, plat)
+            openMM.setup(pairfenet, ani, empirical, plat)
 
         # run simulation
-        openMM.MD(simulation, pairfenet, ani, output_dir, md_params, gro, force)
+        openMM.MD(simulation, pairfenet, ani, empirical, output_dir, md_params,
+            gro, force)
 
         print(datetime.now() - startTime)
 
