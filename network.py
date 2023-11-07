@@ -58,7 +58,6 @@ class CoordsToNRF(Layer):
         b = tf.expand_dims(coords, 1)
         diff = a - b
         diff2 = tf.reduce_sum(diff**2, axis=-1) #get sqrd diff
-        #flatten diff2 so that _NC2 values are left
         tri = tf.linalg.band_part(diff2, -1, 0) #lower
         nonzero_indices = tf.where(tf.not_equal(tri, tf.zeros_like(tri)))
         nonzero_values = tf.gather_nd(tri, nonzero_indices)
@@ -154,6 +153,7 @@ class F(Layer):
         E, coords = E_coords
         gradients = tf.gradients(E, coords, unconnected_gradients='zero')
         return gradients[0] * -1
+
 
 class Q(Layer):
     def __init__(self, n_atoms, **kwargs):
@@ -251,7 +251,6 @@ class Network(object):
         test_coords = np.take(mol.coords, mol.test, axis=0)
         test_atoms = np.tile(atoms, (len(test_coords), 1))
         test_prediction = model.predict([test_coords, test_atoms])
-
         print(f"\nErrors over {len(mol.test)} test structures")
         print(f"                MAE            RMS            MSD          MSE")
 
@@ -278,7 +277,7 @@ class Network(object):
             delimiter=", ", fmt="%.6f")
 
         # correct charge predictions so that there is no net charge
-        # TODO: this will need updating if we want to charged species
+        # TODO: this will need updating if we want to do charged species
         corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
         for s in range(len(test_output_E)):
             for atm in range(mol.n_atom):
@@ -310,6 +309,7 @@ class Network(object):
         activations = ann_params["activations"]
         n_layers = ann_params["n_layers"]
         n_nodes = ann_params["n_nodes"]
+        charge_scheme = ann_params["charge_scheme"]
         if ann_params["n_nodes"] == "auto":
             n_nodes = [n_atoms * 30] * n_layers
 
@@ -360,7 +360,8 @@ class Network(object):
         force = F(n_atoms, n_pairs, name='force')([energy, coords_layer])
 
         # remove excess charge to obtain corrected charges
-        charge = Q(n_atoms,name='charge')(output_layer2)
+        if charge_scheme == 1:
+            charge = Q(n_atoms,name='charge')(output_layer2)
 
         # define the input layers and output layers used in the loss function
         model = Model(

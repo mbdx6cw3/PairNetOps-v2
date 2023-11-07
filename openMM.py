@@ -4,10 +4,11 @@ from openmm.unit import *
 from openmmplumed import PlumedForce
 from openmmtools import integrators
 import numpy as np
-import output, plumed, read_inputs, os, shutil
+import output, read_inputs, os, shutil
 from openmmml import MLPotential
 from network import Network
 import tensorflow as tf
+from datetime import datetime
 
 #TODO: can unused modules be removed?
 
@@ -75,8 +76,10 @@ def setup(pairfenet, ani2x, empirical, plat):
         elif thermostat == "langevin":
             integrator = LangevinMiddleIntegrator(temp*kelvin,
                 coll_freq / picosecond, ts*picoseconds)
+            # TODO: what is the difference between picoseconds and picosecond?
 
     # define biasing potentials
+    # TODO: there is a problem here - it seems ANI is incompatible with bias. Why?
     if bias:
         plumed_file = open(f"{input_dir}/plumed.dat", "r")
         plumed_script = plumed_file.read()
@@ -127,17 +130,28 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
     # this prevents tensorflow printing warnings or other information
     tf.get_logger().setLevel('ERROR')
 
+    #init_coords = simulation.context.getState(
+        #getPositions=True).getPositions(asNumpy=True).in_units_of(
+        #angstrom)
+
     f1 = open(f"./{output_dir}/coords.txt", 'w')
     f2 = open(f"./{output_dir}/forces.txt", 'w')
     f3 = open(f"./{output_dir}/velocities.txt", 'w')
     f4 = open(f"./{output_dir}/energies.txt", 'w')
     f5 = open(f"./{output_dir}/charges.txt", 'w')
 
-    # loop through total number of timesteps
+    # run MD simulation for requested number of timesteps
     for i in range(n_steps):
-        # TODO: dynamically reassign charges
+
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
+
+        #coords = translate_coords(init_coords / angstrom,
+                                            #coords / angstrom, atoms)
+        #simulation.context.setPositions(coords * angstrom)
+
+        if ani2x == True:
+            charges = np.zeros(n_atoms)
 
         if pairfenet == True:
 
@@ -146,9 +160,11 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
                 tf.keras.backend.clear_session()
 
             # predict forces and convert to internal OpenMM units
+            startTime = datetime.now()
+            print(np.reshape(coords, (1, -1, 3)),np.reshape(atoms,(1, -1)))
             prediction = model.predict([np.reshape(coords, (1, -1, 3)),
                                         np.reshape(atoms,(1, -1))], verbose=0)
-            #forces = prediction[0] * kilocalories_per_mole / angstrom
+            print(datetime.now()-startTime)
             forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom, (-1, 3))
 
             # assign forces to ML atoms
@@ -156,13 +172,17 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
                 force.setParticleParameters(j, j, forces[j])
             force.updateParametersInContext(simulation.context)
 
-            # assign charges to ML atoms
+            # TODO: dynamically reassign charges to ML atoms
+            # set charges to zero for now
             charges = np.zeros(n_atoms)
 
         if (i % print_data) == 0 or i == 0:
             time = simulation.context.getState().getTime()
+            state = simulation.context.getState(getEnergy=True)
             velocities = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True)
+            forces = simulation.context.getState(getForces=True). \
+                getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 
             # if not using pairfenet convert forces to kcal/mol/A before printing
             if pairfenet == False:
@@ -170,7 +190,6 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
                     getForces(asNumpy=True).in_units_of(kilocalories_per_mole/angstrom)
                 # TODO: reassign charges using prediction from trained network
                 # charges = nb_force.getParticleParameters(0)???
-            state = simulation.context.getState(getEnergy=True)
 
             # predicts energies in kcal/mol
             if pairfenet == True:
@@ -194,5 +213,87 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
     f2.close()
     f3.close()
     f4.close()
+    f5.close()
     return None
 
+
+
+def translate_coords(init_coords, coords, atoms):
+    '''translate molecule center-of-mass to centre of box'''
+    _ZM = {1: 1.008, 6: 12.011, 8: 15.999, 7: 14.0067}
+    n_atoms = len(atoms)
+    masses = np.array([_ZM[a] for a in atoms])
+    _PA, _MI, com = get_principal_axes(coords, masses)
+    c_translated = np.zeros((n_atoms,3))
+    c_rotated = np.zeros((n_atoms,3))
+    for i in range(n_atoms):
+        c_translated[i] = coords[i] - com
+        for j in range(3):
+            c_rotated[i][j] = np.dot(c_translated[i], _PA[j])
+    return c_translated
+
+def get_principal_axes(coords, masses):
+    com  = get_com(coords, masses)
+    moi = get_moi_tensor(com, coords, masses)
+    eigenvalues, eigenvectors = np.linalg.eig(moi) #diagonalise moi
+    transposed = np.transpose(eigenvectors) #turn columns to rows
+
+    ##find min and max eigenvals (magnitudes of principal axes/vectors)
+    min_eigenvalue = abs(eigenvalues[0])
+    if eigenvalues[1] < min_eigenvalue:
+        min_eigenvalue = eigenvalues[1]
+    if eigenvalues[2] < min_eigenvalue:
+        min_eigenvalue = eigenvalues[2]
+
+    max_eigenvalue = abs(eigenvalues[0])
+    if eigenvalues[1] > max_eigenvalue:
+        max_eigenvalue = eigenvalues[1]
+    if eigenvalues[2] > max_eigenvalue:
+        max_eigenvalue = eigenvalues[2]
+
+    #PA = principal axes
+    _PA = np.zeros((3,3))
+    #MI = moment of inertia
+    _MI = np.zeros((3))
+    for i in range(3):
+        if eigenvalues[i] == max_eigenvalue:
+            _PA[i] = transposed[i]
+            _MI[i] = eigenvalues[i]
+        elif eigenvalues[i] == min_eigenvalue:
+            _PA[i] = transposed[i]
+            _MI[i] = eigenvalues[i]
+        else:
+            _PA[i] = transposed[i]
+            _MI[i] = eigenvalues[i]
+
+    return _PA, _MI, com
+
+
+def get_com(coords, masses):
+    com = np.zeros((3))
+    for coord, mass in zip(coords, masses):
+        for i in range(3):
+            com[i] += mass * coord[i]
+    com = com / sum(masses)
+    return np.array(com)
+
+
+def get_moi_tensor(com, coords, masses):
+    x_cm, y_cm, z_cm = com[0], com[1], com[2]
+    _I = np.zeros((3,3))
+    for coord, mass in zip(coords, masses):
+        _I[0][0] += (abs(coord[1] - y_cm)**2 + \
+                abs(coord[2] - z_cm)**2) * mass
+        _I[0][1] -= (coord[0] - x_cm) * (coord[1] - y_cm) * mass
+        _I[1][0] -= (coord[0] - x_cm) * (coord[1] - y_cm) * mass
+
+        _I[1][1] += (abs(coord[0] - x_cm)**2 + \
+                abs(coord[2] - z_cm)**2) * mass
+        _I[0][2] -= (coord[0] - x_cm) * (coord[2] - z_cm) * mass
+        _I[2][0] -= (coord[0] - x_cm) * (coord[2] - z_cm) * mass
+
+        _I[2][2] += (abs(coord[0] - x_cm)**2 + \
+                abs(coord[1] - y_cm)**2) * mass
+        _I[1][2] -= (coord[1] - y_cm) * (coord[2] - z_cm) * mass
+        _I[2][1] -= (coord[1] - y_cm) * (coord[2] - z_cm) * mass
+    return _I

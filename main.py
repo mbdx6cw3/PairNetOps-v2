@@ -112,13 +112,13 @@ def main():
                 except ValueError:
                     print("Invalid Value")
             mol1 = read_inputs.Molecule()
-            read_inputs.dataset(mol1, input_dir1, set_size, "md")
+            read_inputs.dataset(mol1, input_dir1, set_size)
 
         # initiate molecule class for QM dataset
         if option_flag == 1 or option_flag == 2 or option_flag == 3:
             input_dir2 = "qm_data"
             mol2 = read_inputs.Molecule()
-            read_inputs.dataset(mol2, input_dir2, set_size, "qm")
+            read_inputs.dataset(mol2, input_dir2, set_size)
 
         if option_flag == 1:
             print("Calculating force S-curve...")
@@ -173,6 +173,11 @@ def main():
             analyseMD.fes2D(input_dir1, output_dir)
 
     elif input_flag == 3:
+        print("Convert MD output into QM or ML input.")
+        option_flag = int(input("""
+                     [1] - Convert to QM input.
+                     [2] - Convert to ML input.
+                     > """))
         while True:
             try:
                 set_size = int(input("Enter the dataset size > "))
@@ -203,7 +208,7 @@ def main():
             exit()
 
         mol = read_inputs.Molecule()
-        read_inputs.dataset(mol, input_dir, set_size, "md")
+        read_inputs.dataset(mol, input_dir, set_size)
         output.write_gau(mol, init, set_size, output_dir, opt_prop)
 
     elif input_flag == 4:
@@ -227,7 +232,7 @@ def main():
 
         # initiate molecule class and parse dataset
         mol = read_inputs.Molecule()
-        read_inputs.dataset(mol, input_dir, set_size, "qm")
+        read_inputs.dataset(mol, input_dir, set_size)
 
         option_flag = int(input("""
               [1] - Calculate force and energy probability distributions.
@@ -314,7 +319,7 @@ def main():
 
             # initiate molecule class and parse dataset
             mol = read_inputs.Molecule()
-            read_inputs.dataset(mol, input_dir, set_size, "qm")
+            read_inputs.dataset(mol, input_dir, set_size)
 
             output_dir = "md_input"
             isExist = os.path.exists(output_dir)
@@ -369,7 +374,7 @@ def main():
         # define training and test sets.
         n_train, n_val, n_test = n_data[0], n_data[1], n_data[2]
         set_size = n_train + n_val + n_test
-        read_inputs.dataset(mol, input_dir2, set_size, "qm")
+        read_inputs.dataset(mol, input_dir2, set_size)
         mol.orig_energies = np.copy(mol.energies)
 
         # set job flags
@@ -620,7 +625,6 @@ def main():
                 old_coord = coord[0][rot_list[i_atm]][:] - coord[0][CV_list[2]][:]
                 # rotate old coordinates using rotation matrix
                 new_coord = np.matmul(mat_rot,old_coord)
-                # new_coord2 = mat_rot.dot(old_coord.T) # equivalent approach
                 # shift to old origin
                 coord[i_angle][rot_list[i_atm]][:] = new_coord + coord[0][CV_list[2]][:]
 

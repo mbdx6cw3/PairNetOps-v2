@@ -29,7 +29,7 @@ class Molecule(object):
                 self.energies = np.vstack(other.energies)
 
 class dataset():
-    def __init__(self, mol, input_dir, set_size, input):
+    def __init__(self, mol, input_dir, set_size):
         file_list = ["./nuclear_charges.txt", f"./{input_dir}/coords.txt",
             f"./{input_dir}/forces.txt", f"./{input_dir}/energies.txt",
             f"./{input_dir}/charges.txt"]
@@ -133,6 +133,11 @@ def ann(input_file):
         params["lr_factor"] = float(params["lr_factor"])
     except ValueError:
         print("***ERROR: Invalid learning rate factor")
+        exit()
+    try:
+        params["charge_scheme"] = int(params["charge_scheme"])
+    except ValueError:
+        print("***ERROR: Invalid charge_scheme")
         exit()
     return params
 
