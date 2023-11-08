@@ -132,16 +132,11 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
     # this prevents tensorflow printing warnings or other information
     tf.get_logger().setLevel('ERROR')
 
-    #init_coords = simulation.context.getState(
-        #getPositions=True).getPositions(asNumpy=True).in_units_of(
-        #angstrom)
-
     f1 = open(f"./{output_dir}/coords.txt", 'w')
     f2 = open(f"./{output_dir}/forces.txt", 'w')
     f3 = open(f"./{output_dir}/velocities.txt", 'w')
     f4 = open(f"./{output_dir}/energies.txt", 'w')
     f5 = open(f"./{output_dir}/charges.txt", 'w')
-    print(atoms)
 
     # run MD simulation for requested number of timesteps
     for i in range(n_steps):
@@ -154,7 +149,7 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
 
         if pairfenet == True:
 
-            # clear session to avoid running out of memory
+            # clears session to avoid running out of memory
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
 

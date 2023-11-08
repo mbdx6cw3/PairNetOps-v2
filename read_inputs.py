@@ -139,6 +139,11 @@ def ann(input_file):
     except ValueError:
         print("***ERROR: Invalid charge_scheme")
         exit()
+    try:
+        params["batch_size"] = int(params["batch_size"])
+    except ValueError:
+        print("***ERROR: Invalid batch size")
+        exit()
     return params
 
 

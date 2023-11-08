@@ -215,9 +215,9 @@ class Network(object):
         min_lr = ann_params["min_lr"]
         lr_patience = ann_params["lr_patience"]
         lr_factor = ann_params["lr_factor"]
+        batch_size = ann_params["batch_size"]
         file_name=f"./{output_dir2}/best_model" # name of model
         monitor_loss='val_loss' # monitor validation loss during training
-        batch_size = 32 # number of structures that are cycled through
 
         # keras training variables
         mc = ModelCheckpoint(file_name, monitor=monitor_loss, mode='min',
