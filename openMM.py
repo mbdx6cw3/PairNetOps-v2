@@ -93,6 +93,8 @@ def setup(pairfenet, ani2x, empirical, plat):
     if minim:
         simulation.minimizeEnergy()
 
+    # TODO: somewhere we need to define whether charges will come from a separate ANN or the same one as energy and forces
+
     return simulation, output_dir, md_params, gro, force
 
 def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, force):
@@ -139,16 +141,13 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
     f3 = open(f"./{output_dir}/velocities.txt", 'w')
     f4 = open(f"./{output_dir}/energies.txt", 'w')
     f5 = open(f"./{output_dir}/charges.txt", 'w')
+    print(atoms)
 
     # run MD simulation for requested number of timesteps
     for i in range(n_steps):
 
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
-
-        #coords = translate_coords(init_coords / angstrom,
-                                            #coords / angstrom, atoms)
-        #simulation.context.setPositions(coords * angstrom)
 
         if ani2x == True:
             charges = np.zeros(n_atoms)
@@ -160,12 +159,10 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
                 tf.keras.backend.clear_session()
 
             # predict forces and convert to internal OpenMM units
-            startTime = datetime.now()
-            print(np.reshape(coords, (1, -1, 3)),np.reshape(atoms,(1, -1)))
-            prediction = model.predict([np.reshape(coords, (1, -1, 3)),
-                                        np.reshape(atoms,(1, -1))], verbose=0)
-            print(datetime.now()-startTime)
-            forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom, (-1, 3))
+            prediction = model.predict_on_batch([np.reshape(coords
+                [:n_atoms]/angstrom, (1, -1, 3)), np.reshape(atoms,(1, -1))])
+            forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom,
+                (-1, 3))
 
             # assign forces to ML atoms
             for j in range(n_atoms):
@@ -216,84 +213,3 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
     f5.close()
     return None
 
-
-
-def translate_coords(init_coords, coords, atoms):
-    '''translate molecule center-of-mass to centre of box'''
-    _ZM = {1: 1.008, 6: 12.011, 8: 15.999, 7: 14.0067}
-    n_atoms = len(atoms)
-    masses = np.array([_ZM[a] for a in atoms])
-    _PA, _MI, com = get_principal_axes(coords, masses)
-    c_translated = np.zeros((n_atoms,3))
-    c_rotated = np.zeros((n_atoms,3))
-    for i in range(n_atoms):
-        c_translated[i] = coords[i] - com
-        for j in range(3):
-            c_rotated[i][j] = np.dot(c_translated[i], _PA[j])
-    return c_translated
-
-def get_principal_axes(coords, masses):
-    com  = get_com(coords, masses)
-    moi = get_moi_tensor(com, coords, masses)
-    eigenvalues, eigenvectors = np.linalg.eig(moi) #diagonalise moi
-    transposed = np.transpose(eigenvectors) #turn columns to rows
-
-    ##find min and max eigenvals (magnitudes of principal axes/vectors)
-    min_eigenvalue = abs(eigenvalues[0])
-    if eigenvalues[1] < min_eigenvalue:
-        min_eigenvalue = eigenvalues[1]
-    if eigenvalues[2] < min_eigenvalue:
-        min_eigenvalue = eigenvalues[2]
-
-    max_eigenvalue = abs(eigenvalues[0])
-    if eigenvalues[1] > max_eigenvalue:
-        max_eigenvalue = eigenvalues[1]
-    if eigenvalues[2] > max_eigenvalue:
-        max_eigenvalue = eigenvalues[2]
-
-    #PA = principal axes
-    _PA = np.zeros((3,3))
-    #MI = moment of inertia
-    _MI = np.zeros((3))
-    for i in range(3):
-        if eigenvalues[i] == max_eigenvalue:
-            _PA[i] = transposed[i]
-            _MI[i] = eigenvalues[i]
-        elif eigenvalues[i] == min_eigenvalue:
-            _PA[i] = transposed[i]
-            _MI[i] = eigenvalues[i]
-        else:
-            _PA[i] = transposed[i]
-            _MI[i] = eigenvalues[i]
-
-    return _PA, _MI, com
-
-
-def get_com(coords, masses):
-    com = np.zeros((3))
-    for coord, mass in zip(coords, masses):
-        for i in range(3):
-            com[i] += mass * coord[i]
-    com = com / sum(masses)
-    return np.array(com)
-
-
-def get_moi_tensor(com, coords, masses):
-    x_cm, y_cm, z_cm = com[0], com[1], com[2]
-    _I = np.zeros((3,3))
-    for coord, mass in zip(coords, masses):
-        _I[0][0] += (abs(coord[1] - y_cm)**2 + \
-                abs(coord[2] - z_cm)**2) * mass
-        _I[0][1] -= (coord[0] - x_cm) * (coord[1] - y_cm) * mass
-        _I[1][0] -= (coord[0] - x_cm) * (coord[1] - y_cm) * mass
-
-        _I[1][1] += (abs(coord[0] - x_cm)**2 + \
-                abs(coord[2] - z_cm)**2) * mass
-        _I[0][2] -= (coord[0] - x_cm) * (coord[2] - z_cm) * mass
-        _I[2][0] -= (coord[0] - x_cm) * (coord[2] - z_cm) * mass
-
-        _I[2][2] += (abs(coord[0] - x_cm)**2 + \
-                abs(coord[1] - y_cm)**2) * mass
-        _I[1][2] -= (coord[1] - y_cm) * (coord[2] - z_cm) * mass
-        _I[2][1] -= (coord[1] - y_cm) * (coord[2] - z_cm) * mass
-    return _I
