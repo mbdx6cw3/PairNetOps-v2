@@ -153,9 +153,11 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
 
-            # predict forces and convert to internal OpenMM units
+            # predict forces
+            # predict_on_batch must faster than predict when only single structure
             prediction = model.predict_on_batch([np.reshape(coords
                 [:n_atoms]/angstrom, (1, -1, 3)), np.reshape(atoms,(1, -1))])
+            # convert to OpenMM internal units
             forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom,
                 (-1, 3))
 

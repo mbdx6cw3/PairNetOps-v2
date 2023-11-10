@@ -24,7 +24,6 @@ class NuclearChargePairs(Layer):
         self.n_atoms = n_atoms
 
     def call(self, atom_nc):
-        #oldTime = datetime.now()
         a = tf.expand_dims(atom_nc, 2)
         b = tf.expand_dims(atom_nc, 1)
         c = a * b
@@ -35,7 +34,6 @@ class NuclearChargePairs(Layer):
         nonzero_values = tf.gather_nd(tri, nonzero_indices)
         nc_flat = tf.reshape(nonzero_values,
                 shape=(tf.shape(atom_nc)[0], self._NC2)) #reshape to _NC2
-        #print("2) ", datetime.now() - oldTime)
         return nc_flat
 
 
@@ -55,7 +53,6 @@ class CoordsToNRF(Layer):
 
 
     def call(self, coords_nc):
-        #oldTime = datetime.now()
         coords, atom_nc = coords_nc
         a = tf.expand_dims(coords, 2)
         b = tf.expand_dims(coords, 1)
@@ -64,14 +61,12 @@ class CoordsToNRF(Layer):
         tri = tf.linalg.band_part(diff2, -1, 0) #lower
         nonzero_indices = tf.where(tf.not_equal(tri, tf.zeros_like(tri)))
         nonzero_values = tf.gather_nd(tri, nonzero_indices)
-        diff_flat = tf.reshape(nonzero_values,
-                shape=(tf.shape(tri)[0], -1)) #reshape to _NC2
+        diff_flat = tf.reshape(nonzero_values, shape=(tf.shape(tri)[0], -1))
         r = diff_flat ** 0.5
         recip_r2 = 1 / r ** 2
         # TODO: this can be removed and simplified - make consistent with other
         _NRF = (((atom_nc * self.au2kcalmola) * recip_r2) / self.max_NRF) #scaled
         _NRF = tf.reshape(_NRF, shape=(tf.shape(coords)[0], self._NC2))
-        #print("4) ",  datetime.now() - oldTime)
         return _NRF
 
 
@@ -85,11 +80,9 @@ class E(Layer):
         return (batch_size, 1)
 
     def call(self, E_scaled):
-        #oldTime = datetime.now()
         E = ((E_scaled - self.prescale[2]) /
                 (self.prescale[3] - self.prescale[2]) *
                 (self.prescale[1] - self.prescale[0]) + self.prescale[0])
-        #print("14) ",  datetime.now() - oldTime)
         return E
 
 
@@ -104,12 +97,10 @@ class Eij(Layer):
         return (batch_size, self._NC2)
 
     def call(self, decomp_scaled):
-        #oldTime = datetime.now()
         decomp_scaled = tf.reshape(decomp_scaled, shape=(tf.shape(decomp_scaled)[0], -1))
         decomp = (decomp_scaled - 0.5) * (2 * self.max_Eij)
         decomp = tf.reshape(decomp,
                 shape=(tf.shape(decomp_scaled)[0], self._NC2)) #reshape to _NC2
-        #print("10) ",  datetime.now() - oldTime)
         return decomp
 
 
@@ -124,7 +115,6 @@ class ERecomposition(Layer):
         return (batch_size, 1)
 
     def call(self, coords_decompFE):
-        #oldTime = datetime.now()
         coords, decompFE = coords_decompFE
         decompFE = tf.reshape(decompFE, shape=(tf.shape(decompFE)[0], -1))
         a = tf.expand_dims(coords, 2)
@@ -141,7 +131,6 @@ class ERecomposition(Layer):
         eij_E = recip_r_flat / norm_recip_r
         recompE = tf.einsum('bi, bi -> b', eij_E, decompFE)
         recompE = tf.reshape(recompE, shape=(tf.shape(coords)[0], 1))
-        #print("12) ",  datetime.now() - oldTime)
         return recompE
 
 
@@ -157,42 +146,36 @@ class F(Layer):
 
     def call(self, E_coords):
         E, coords = E_coords
-        #oldTime = datetime.now()
         gradients = tf.gradients(E, coords, unconnected_gradients='zero')
-        #print("16) ",  datetime.now() - oldTime)
-
-        #with tf.GradientTape() as tape:
-         #   E = coords**2
-        #gradients = tape.gradient(E, coords)
-        #print(gradients)
         return gradients[0] * -1
 
 
 class Q(Layer):
-    def __init__(self, n_atoms, **kwargs):
+    def __init__(self, n_atoms, correct_q, **kwargs):
         super(Q, self).__init__()
         self.n_atoms = n_atoms
+        self.correct = correct_q
 
     def compute_output_shape(self, input_shape):
         batch_size = input_shape[0]
         return (batch_size, self.n_atoms)
 
-    def call(self, predicted_q):
-        #oldTime = datetime.now()
+    def call(self, old_q):
         # calculate corrected charges by subtracting net charge from all predicted charges
-        #corrected_q = predicted_q - (tf.reduce_sum(predicted_q,0) / self.n_atoms)
-        #print("18) ",  datetime.now() - oldTime)
-        return predicted_q
+        new_q = old_q
+        if self.correct == True:
+            sum_q = tf.reduce_sum(old_q) / self.n_atoms
+            new_q = old_q - sum_q
+        #K.print_tensor(old_q[0], message="pred_q = ")
+        #K.print_tensor(new_q[0], message="corr_q = ")
+        return new_q
 
 
 class Network(object):
-    '''
-    '''
     def __init__(self, molecule):
         self.model = None
 
     def train(self, model, mol, ann_params, output_dir1, output_dir2):
-
         atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
 
         # prepare training and validation data
@@ -209,6 +192,7 @@ class Network(object):
         train_atoms = np.tile(atoms, (len(train_coords), 1))
         val_atoms = np.tile(atoms, (len(val_coords), 1))
 
+        # ann parameters
         epochs = ann_params["epochs"]
         loss_weights = ann_params["loss_weights"]
         init_lr = ann_params["init_lr"]
@@ -258,8 +242,10 @@ class Network(object):
 
         return model
 
-    def test(self, model, mol, output_dir):
+    def test(self, model, mol, output_dir, ann_params):
         '''test previously trained ANN'''
+
+        charge_scheme = ann_params["charge_scheme"]
 
         # define test set
         atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
@@ -295,10 +281,14 @@ class Network(object):
 
         # correct charge predictions so that there is no net charge
         # TODO: this will need updating if we want to do charged species
-        corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
-        for s in range(len(test_output_E)):
-            for atm in range(mol.n_atom):
-                corr_prediction[s][atm] = test_prediction[2][s][atm] - sum(test_prediction[2][s])
+        if charge_scheme == 1:
+            corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
+            for s in range(len(test_output_E)):
+                for atm in range(mol.n_atom):
+                    corr_prediction[s][atm] = test_prediction[2][s][atm] - \
+                                              (sum(test_prediction[2][s]) / mol.n_atom)
+        elif charge_scheme == 2:
+            corr_prediction = test_prediction[2][:][:]
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)
@@ -323,7 +313,6 @@ class Network(object):
         Cart Fs and molecular E, both of which could be used in the loss
         function, could weight the E or Fs as required.
         '''
-        #oldTime = datetime.now()
 
         # set variables
         n_pairs = int(n_atoms * (n_atoms - 1) / 2)
@@ -342,26 +331,14 @@ class Network(object):
         # create input layer tensors
         coords_layer = Input(shape=(n_atoms, 3), name='coords_layer')
         nuclear_charge_layer = Input(shape=(n_atoms), name='nuclear_charge_layer')
-        #print("1) ", datetime.now()-oldTime)
-        #oldTime = datetime.now()
-
         nc_pairs_layer = NuclearChargePairs(n_pairs, n_atoms)(nuclear_charge_layer)
-
-        #print("3) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
 
         # calculate scaled NRFs from coordinates and nuclear charges
         NRF_layer = CoordsToNRF(max_NRF, n_pairs, n_atoms, name='NRF_layer')\
                 ([coords_layer, nc_pairs_layer])
 
-        #print("5) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
-
         # define input layer as the NRFs
         connected_layer = NRF_layer
-
-        #print("6) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
 
         # loop over hidden layers
         for l in range(n_layers):
@@ -369,63 +346,43 @@ class Network(object):
                 name='net_layerA{}'.format(l))(connected_layer)
             connected_layer = net_layer
 
-        #print("7) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
-
         # output layer for interatomic pairwise energy components
         output_layer1 = Dense(units=n_pairs, activation="linear",
             name='net_layer_n_pair')(connected_layer)
-
-        #print("8) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
 
         # output layer for uncorrected predicted charges
         output_layer2 = Dense(units=n_atoms, activation="linear",
             name='net_layer_n_atm')(connected_layer)
 
-        #print("9) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
-
         # calculated unscaled interatomic energies
         unscale_qFE_layer = Eij(n_pairs, max_matFE, name='unscale_qF_layer')\
             (output_layer1)
-
-        #print("11) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
 
         # calculate the scaled energy from the coordinates and unscaled qFE
         E_layer = ERecomposition(n_atoms, n_pairs, name='qFE_layer')\
             ([coords_layer, unscale_qFE_layer])
 
-        #print("13) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
-
         # calculate the unscaled energy
         energy = E(prescale, name='energy')(E_layer)
-
-        #print("15) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
 
         # obtain the forces by taking the gradient of the energy
         force = F(n_atoms, n_pairs, name='force')([energy, coords_layer])
 
-        #print("17) ",  datetime.now()-oldTime)
-        #oldTime = datetime.now()
-
         # prediction of uncorrected partial charges
         if charge_scheme == 1:
-            charge = Q(n_atoms,name='charge')(output_layer2)
+            corr = False
+            charge = Q(n_atoms, corr, name='charge')(output_layer2)
         # prediction of corrected partial charges
         elif charge_scheme == 2:
-            charge = Q(n_atoms, name='charge')(output_layer2)
+            corr = True
+            charge = Q(n_atoms, corr, name='charge')(output_layer2)
+
         # prediction of decomposed and recomposed charge pairs
         elif charge_scheme == 3:
             charge = Q(n_atoms, name='charge')(output_layer2)
 
         # calculate electrostatic energy... this will go in the loss function
         # elec_energy = ....
-
-        #print("19) ",  datetime.now()-oldTime)
 
         # define the input layers and output layers used in the loss function
         model = Model(

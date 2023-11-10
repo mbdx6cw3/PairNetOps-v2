@@ -33,12 +33,11 @@ def energy_CV(mol, atom_indices, set_size, output_dir):
         if len(CV_list) == 2:
             x_label = "$r_{ij} / \AA$"
             CV[item] = calc_geom.distance(p)
-            #print(item, CV[item], mol.energies[item])
         elif len(CV_list) == 3:
             x_label = "$\u03F4_{ijk}  (degrees)$"
             CV[item] = calc_geom.angle(p)
         elif len(CV_list) == 4:
-            if ((item) % 20) == 0:
+            #if ((item) % 20) == 0:
                 x_label = "$\u03C6_{ijkl} (degrees)$"
                 CV[item] = calc_geom.dihedral(p)
                 print(item, CV[item], mol.energies[item])

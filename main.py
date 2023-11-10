@@ -236,10 +236,10 @@ def main():
 
         option_flag = int(input("""
               [1] - Calculate force and energy probability distributions.
-              [2] - Calculate interatomic pairwise force components (q).
+              [2] - Calculate pairwise energy components (e_ij).
               [3] - Calculate energy wrt to geometric variable.
               [4] - Calculate distance matrix RMSD.
-              [5] - Analyse charges.
+              [5] - Analyse charges (Not yet functional)
               > """))
 
         if option_flag == 1:
@@ -264,13 +264,12 @@ def main():
             print("Calculating distance matrix RMSD...")
             rmsd_dist = analyseQM.rmsd_dist(mol,set_size)
             print(f"Distance matrix RMSD: {np.mean(rmsd_dist)} Angstrom")
-        elif option_flag == 5:
-            print("Analysing charges")
+        #elif option_flag == 5:
+            #print("Analysing charges")
             #print maximum, minimum and mean charge for each atom
-            print(*mol.charges.max(axis=0))
-            print(*mol.charges.min(axis=0))
-            print(*mol.charges.mean(axis=0))
-            exit()
+            #print(*mol.charges.max(axis=0))
+            #print(*mol.charges.min(axis=0))
+            #print(*mol.charges.mean(axis=0))
 
     elif input_flag == 5:
 
@@ -464,7 +463,7 @@ def main():
                 analyseQM.get_eij(mol, set_size, output_dir1)
 
             print("Testing model...")
-            network.test(model, mol, output_dir1)
+            network.test(model, mol, output_dir1, ann_params)
 
         print(datetime.now() - startTime)
 
