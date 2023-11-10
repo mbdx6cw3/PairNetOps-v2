@@ -248,7 +248,7 @@ def main():
             mol.orig_energies = np.copy(mol.energies)
             analyseQM.prescale_e(mol, mol.energies, mol.forces)
             analyseQM.get_eij(mol, set_size, output_dir)
-            recomb_F = analyseQM.get_forces(mol, mol.coords, mol.mat_FE)
+            recomb_F = analyseQM.get_eij(mol, mol.coords, mol.mat_FE)
             np.savetxt(f"./{output_dir}/recomb_test.dat", np.column_stack((
                 mol.forces.flatten(), recomb_F.flatten())), delimiter=" ", fmt="%.6f")
         elif option_flag == 3:
