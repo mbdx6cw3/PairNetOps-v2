@@ -9,16 +9,16 @@ def dist(mol, set_size, output_dir):
     bin = bin[range(1, bin.shape[0])]
     bin_width = bin[1] - bin[0]
     output.lineplot(bin, hist / bin_width / set_size / 3.0 / n_atom, "linear",
-                "force (kcal/mol/A)", "probability", "qm_force_dist", output_dir)
-    np.savetxt(f"./{output_dir}/qm_force_dist.dat",
+                "force (kcal/mol/A)", "probability", "force_dist", output_dir)
+    np.savetxt(f"./{output_dir}/force_dist.dat",
         np.column_stack((bin, hist / bin_width / set_size / 3.0 / n_atom)),
         delimiter = " ",fmt="%.6f")
     hist, bin = np.histogram(mol.energies, 50, (np.min(mol.energies),np.max(mol.energies)))
     bin = bin[range(1, bin.shape[0])]
     bin_width = bin[1] - bin[0]
     output.lineplot(bin, hist / bin_width / set_size, "linear", "energy",
-        "probability", "qm_energy_dist", output_dir)
-    np.savetxt(f"./{output_dir}/qm_energy_dist.dat",
+        "probability", "energy_dist", output_dir)
+    np.savetxt(f"./{output_dir}/energy_dist.dat",
         np.column_stack((bin, hist / bin_width / set_size)), delimiter = " ",
         fmt="%.6f")
     return None
@@ -37,10 +37,8 @@ def energy_CV(mol, atom_indices, set_size, output_dir):
             x_label = "$\u03F4_{ijk}  (degrees)$"
             CV[item] = calc_geom.angle(p)
         elif len(CV_list) == 4:
-            #if ((item) % 20) == 0:
-                x_label = "$\u03C6_{ijkl} (degrees)$"
-                CV[item] = calc_geom.dihedral(p)
-                print(item, CV[item], mol.energies[item])
+            x_label = "$\u03C6_{ijkl} (degrees)$"
+            CV[item] = calc_geom.dihedral(p)
     # plot distribution, scatter and save data
     print("MEAN:", np.mean(CV))
     energy = mol.energies[:,0] - np.min(mol.energies[:,0])
@@ -48,19 +46,21 @@ def energy_CV(mol, atom_indices, set_size, output_dir):
     bin = bin[range(1, bin.shape[0])]
     output.lineplot(bin, hist / set_size, "linear", x_label,
         "relative probability", "geom_dist", output_dir)
-    np.savetxt(f"./{output_dir}/geom.dat",
+    np.savetxt(f"./{output_dir}/geom_dist.dat",
         np.column_stack((bin, hist / set_size)), delimiter=" ", fmt="%.6f")
     output.scatterplot(CV, energy, "linear", x_label,
-        "QM energy (kcal/mol)", "qm_energy_CV_scatter", output_dir)
-    means, edges, counts = binned_statistic(CV, energy, statistic='min',
-        bins=72, range=(-180.0, 180.0))
-    bin_width = edges[1] - edges[0]
-    bin_centers = edges[1:] - bin_width / 2
-    output.lineplot(bin_centers, means, "linear", x_label,
-        "mean energy (kcal/mol)", "qm_energy_geom", output_dir)
-    np.savetxt(f"./{output_dir}/qm_energy_geom.dat",
-        np.column_stack((bin_centers, means)), delimiter = " ",
-               fmt="%.6f")
+        "QM energy (kcal/mol)", "energy_geom_scatter", output_dir)
+    np.savetxt(f"./{output_dir}/energy_geom_scatter.dat",
+        np.column_stack((CV, energy)), delimiter=" ", fmt="%.6f")
+    #means, edges, counts = binned_statistic(CV, energy, statistic='min',
+    #    bins=72, range=(-180.0, 180.0))
+    #bin_width = edges[1] - edges[0]
+    #bin_centers = edges[1:] - bin_width / 2
+    #output.lineplot(bin_centers, means, "linear", x_label,
+    #    "mean energy (kcal/mol)", "qm_energy_geom", output_dir)
+    #np.savetxt(f"./{output_dir}/qm_energy_geom.dat",
+    #    np.column_stack((bin_centers, means)), delimiter = " ",
+    #           fmt="%.6f")
     return None
 
 def rmsd_dist(mol, set_size):
@@ -152,6 +152,9 @@ def get_eij(mol, set_size, output_dir):
     # flatten output_matFE instead below?
     output.scatterplot([mol.mat_r.flatten()], [mol.output_eij.flatten()], "linear",
         "$r_{ij}$ / $\AA$", "$e_{ij}$ / kcal/mol", "eij_rij", output_dir)
+    np.savetxt(f"./{output_dir}/eij_rij.dat",
+        np.column_stack((mol.mat_r.flatten(), mol.output_eij.flatten())),
+        delimiter=" ", fmt="%.6f")
     hist, bin = np.histogram(mol.output_eij.flatten(), 200,
         (np.min(mol.output_eij.flatten()), np.max(mol.output_eij.flatten())))
     bin = bin[range(1, bin.shape[0])]

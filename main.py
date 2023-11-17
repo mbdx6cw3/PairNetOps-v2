@@ -174,10 +174,10 @@ def main():
 
     elif input_flag == 3:
         print("Convert MD output into QM or ML input.")
-        option_flag = int(input("""
-                     [1] - Convert to QM input.
-                     [2] - Convert to ML input.
-                     > """))
+        #option_flag = int(input("""
+         #            [1] - Convert to QM input.
+         #            [2] - Convert to ML input.
+          #           > """))
         while True:
             try:
                 set_size = int(input("Enter the dataset size > "))
@@ -237,9 +237,9 @@ def main():
         option_flag = int(input("""
               [1] - Calculate force and energy probability distributions.
               [2] - Calculate pairwise energy components (e_ij).
-              [3] - Calculate energy wrt to geometric variable.
-              [4] - Calculate distance matrix RMSD.
-              [5] - Analyse charges (Not yet functional)
+              [3] - Analyse geometry.
+              [4] - Calculate distance matrix RMSD from initial structure.
+              [5] - Analyse charges (not yet functional)
               > """))
 
         if option_flag == 1:
@@ -248,9 +248,6 @@ def main():
             mol.orig_energies = np.copy(mol.energies)
             analyseQM.prescale_e(mol, mol.energies, mol.forces)
             analyseQM.get_eij(mol, set_size, output_dir)
-            recomb_F = analyseQM.get_eij(mol, mol.coords, mol.mat_FE)
-            np.savetxt(f"./{output_dir}/recomb_test.dat", np.column_stack((
-                mol.forces.flatten(), recomb_F.flatten())), delimiter=" ", fmt="%.6f")
         elif option_flag == 3:
             atom_indices = input("""
                 Enter atom indices separated by spaces:
