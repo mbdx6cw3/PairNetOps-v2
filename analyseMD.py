@@ -95,3 +95,33 @@ def energy_corr(baseline, values, output_dir):
         "Rel. MD energy (kcal/mol)", "energy_error_scatter", output_dir)
     return None
 
+
+def check_stability(mol1, init, set_size):
+    n_atoms = len(mol1.atoms)
+    max_r = 1.6
+    max_bonds = n_atoms * 3
+    # calculate bond distance list for equilibrium structure
+    atom_indices = np.zeros([max_bonds, 2], dtype=int)
+    bond_dist = np.zeros([max_bonds], dtype=float)
+    n_bonds = 0
+    for i in range(n_atoms):
+        for j in range(i):
+            r_ij = np.linalg.norm(mol1.coords[init][i] - mol1.coords[init][j])
+            if r_ij < max_r:
+                atom_indices[n_bonds][0] = i
+                atom_indices[n_bonds][1] = j
+                bond_dist[n_bonds] = r_ij
+                n_bonds += 1
+
+    # check that MD structures have bonds within distance criteria
+    max_dev = 0.25
+    for s in range(init, set_size):
+        for i_bond in range(n_bonds):
+            p = np.zeros([2, 3])
+            p[:] = mol1.coords[s][atom_indices[i_bond][:]]
+            r_ij = calc_geom.distance(p)
+            if abs(r_ij - bond_dist[i_bond]) > max_dev:
+                print(s, i_bond, atom_indices[i_bond][0],
+                    atom_indices[i_bond][1], r_ij, bond_dist[i_bond])
+
+    return None

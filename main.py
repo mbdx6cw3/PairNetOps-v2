@@ -87,18 +87,20 @@ def main():
         if not isExist:
             os.makedirs(output_dir)
 
+        # TODO: stability
         option_flag = int(input("""
             [1] - Calculate force S-curve.
             [2] - Calculate force error distribution.
             [3] - Calculate energy correlation.
             [4] - Calculate dihedral angle probability distributions.
             [5] - Calculate 2D free energy surface.
+            [6] - Assess stability. 
             > """))
 
         # initiate molecule class for MD dataset
         input_dir1 = "md_output"
         if option_flag == 1 or option_flag == 2 or option_flag == 3 or \
-            option_flag == 4:
+            option_flag == 4 or option_flag == 6:
             while True:
                 try:
                     set_size = int(input("Enter the dataset size > "))
@@ -127,6 +129,7 @@ def main():
             np.savetxt(f"./{output_dir}/mm_f_test.dat", np.column_stack((
                 mol2.forces.flatten(), mol1.forces.flatten())),
                        delimiter=", ", fmt="%.6f")
+
             # calculate MAE
             mae = 0
             for actual, prediction in zip(mol2.forces.flatten(), mol1.forces.flatten()):
@@ -171,6 +174,11 @@ def main():
         elif option_flag == 5:
             print("Calculating 2D free energy surface...")
             analyseMD.fes2D(input_dir1, output_dir)
+
+        # TODO: simulation stability
+        elif option_flag == 6:
+            print("Assessing stability...")
+            analyseMD.check_stability(mol1, init, set_size)
 
     elif input_flag == 3:
         print("Convert MD output into QM or ML input.")
@@ -596,6 +604,8 @@ def main():
             os.makedirs(output_dir)
 
         # open initial structure, find and extract coordinates
+        # TODO: change this to read in dataset from qm_data instead
+        # TODO: put in new module/function
         qm_file = open(f"./mol_1.out", "r")
         for line in qm_file:
             if "Input orientation:" in line:
