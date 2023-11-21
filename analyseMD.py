@@ -96,11 +96,11 @@ def energy_corr(baseline, values, output_dir):
     return None
 
 
-def check_stability(mol1, init, set_size):
+def check_stability(mol1, init, set_size, output_dir):
+    # calculate bond distance list for equilibrium structure
     n_atoms = len(mol1.atoms)
     max_r = 1.6
     max_bonds = n_atoms * 3
-    # calculate bond distance list for equilibrium structure
     atom_indices = np.zeros([max_bonds, 2], dtype=int)
     bond_dist = np.zeros([max_bonds], dtype=float)
     n_bonds = 0
@@ -113,15 +113,48 @@ def check_stability(mol1, init, set_size):
                 bond_dist[n_bonds] = r_ij
                 n_bonds += 1
 
-    # check that MD structures have bonds within distance criteria
-    max_dev = 0.25
+    # check stability of trajectory
+    stable = True
+
+    print("Checking bond distance deviation criteria...")
+    max_dev = 0.25 # maximum bond distance deviation
+    element = {1: "H", 6: "C", 7: "N", 8: "O"}
+    atom_names = []
+    for i in range(len(mol1.atoms)):
+        atom_names.append(element[mol1.atoms[i]])
     for s in range(init, set_size):
         for i_bond in range(n_bonds):
             p = np.zeros([2, 3])
             p[:] = mol1.coords[s][atom_indices[i_bond][:]]
             r_ij = calc_geom.distance(p)
             if abs(r_ij - bond_dist[i_bond]) > max_dev:
+                print("frame, bond number, atom i, atom j, bond dist (A), ref dist (A)")
                 print(s, i_bond, atom_indices[i_bond][0],
                     atom_indices[i_bond][1], r_ij, bond_dist[i_bond])
+                print("Writing .pdb file...")
+                output.write_pdb(mol1.coords[s][:][:], "name", 1, mol1.atoms,
+                    atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
+                stable = False
+
+    # check that there are no close contacts
+    print("Checking close contacts...")
+    min_dist = 0.75 # minimum interatomic distance
+    for s in range(init, set_size):
+        for i in range(n_atoms):
+            for j in range(i):
+                r_ij = np.linalg.norm(mol1.coords[s][i] - mol1.coords[s][j])
+                if r_ij < min_dist:
+                    print("frame, bond number, atom i, atom j, bond dist (A), ref dist (A)")
+                    print(s, i_bond, atom_indices[i_bond][0],
+                          atom_indices[i_bond][1], r_ij, bond_dist[i_bond])
+                    print("Writing .pdb file...")
+                    output.write_pdb(mol1.coords[s][:][:], "name", 1, mol1.atoms,
+                        atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
+                    stable = False
+
+    if stable:
+        print("Trajectory is stable - no unphysical structures generated.")
+    else:
+        print("Trajectory is unstable - unphysical structures generated.")
 
     return None

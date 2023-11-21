@@ -87,14 +87,13 @@ def main():
         if not isExist:
             os.makedirs(output_dir)
 
-        # TODO: stability
         option_flag = int(input("""
             [1] - Calculate force S-curve.
             [2] - Calculate force error distribution.
             [3] - Calculate energy correlation.
             [4] - Calculate dihedral angle probability distributions.
             [5] - Calculate 2D free energy surface.
-            [6] - Assess stability. 
+            [6] - Assess stability of simulation trajectory.
             > """))
 
         # initiate molecule class for MD dataset
@@ -175,10 +174,9 @@ def main():
             print("Calculating 2D free energy surface...")
             analyseMD.fes2D(input_dir1, output_dir)
 
-        # TODO: simulation stability
         elif option_flag == 6:
-            print("Assessing stability...")
-            analyseMD.check_stability(mol1, init, set_size)
+            print("Assessing stability of simulation trajectory...")
+            analyseMD.check_stability(mol1, init, set_size, output_dir)
 
     elif input_flag == 3:
         print("Convert MD output into QM or ML input.")
