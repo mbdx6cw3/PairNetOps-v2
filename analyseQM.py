@@ -24,6 +24,24 @@ def dist(mol, set_size, output_dir):
     return None
 
 
+def charge_dist(mol, index, set_size, output_dir):
+    charge = np.empty(shape=[set_size])
+    for item in range(set_size):
+        charge[item] = mol.charges[item][index]
+    hist, bin = np.histogram(charge,50,(np.min(charge),np.max(charge)))
+    bin = bin[range(1, bin.shape[0])]
+    bin_width = bin[1] - bin[0]
+    output.lineplot(bin, hist / bin_width / set_size, "linear",
+                "charge (e)", "probability", "charge_dist", output_dir)
+    np.savetxt(f"./{output_dir}/charge_dist.dat",
+        np.column_stack((bin, hist / bin_width / set_size)),
+        delimiter = " ",fmt="%.6f")
+    return None
+
+
+# charge_CV here.
+
+
 def energy_CV(mol, atom_indices, set_size, output_dir):
     CV_list = np.array(atom_indices.split(), dtype=int)
     CV = np.empty(shape=[set_size])

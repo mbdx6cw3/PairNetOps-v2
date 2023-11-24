@@ -245,7 +245,7 @@ def main():
               [2] - Calculate pairwise energy components (e_ij).
               [3] - Analyse geometry.
               [4] - Calculate distance matrix RMSD from initial structure.
-              [5] - Analyse charges (not yet functional)
+              [5] - Analyse charges.
               > """))
 
         if option_flag == 1:
@@ -267,12 +267,22 @@ def main():
             print("Calculating distance matrix RMSD...")
             rmsd_dist = analyseQM.rmsd_dist(mol,set_size)
             print(f"Distance matrix RMSD: {np.mean(rmsd_dist)} Angstrom")
-        #elif option_flag == 5:
-            #print("Analysing charges")
-            #print maximum, minimum and mean charge for each atom
-            #print(*mol.charges.max(axis=0))
-            #print(*mol.charges.min(axis=0))
-            #print(*mol.charges.mean(axis=0))
+        elif option_flag == 5:
+            print("Analysing charges...")
+            charge_option = int(input("""
+                [1] Calculate mean atomic partial charges.
+                [2] Calculate atomic partial charge probability distribution.
+                [3] Calculate partial charge as a function of geometric variable (not yet functional).
+                > """))
+            if charge_option == 1:
+                np.savetxt(f"./{output_dir}/mean_charges.dat", np.column_stack((
+                    np.arange(mol.n_atom),mol.charges.mean(axis=0))),
+                    fmt="%d %.6f", delimiter=" ")
+            elif charge_option == 2:
+                atom_option = int(input("""Enter atom index > """))
+                analyseQM.charge_dist(mol, atom_option, set_size, output_dir)
+            elif charge_option == 3:
+                print("hello")
 
     elif input_flag == 5:
 

@@ -46,6 +46,12 @@ def pop2D(mol1, n_bins, CV_list, output_dir, init, set_size):
     x, y = np.meshgrid(np.linspace(-180, 180, n_bins),
                        np.linspace(-180, 180, n_bins))
     output.heatmap2D(x, y, pop, pop.max(), output_dir, "pop_2d", "gist_heat",fe_map=False)
+    count = 0
+    for i in range(n_bins):
+        for j in range(n_bins):
+            if pop[i][j] != 0:
+                count += 1
+    print("% of surface populated:", 100*count /(n_bins*n_bins))
     return None
 
 
@@ -144,9 +150,8 @@ def check_stability(mol1, init, set_size, output_dir):
             for j in range(i):
                 r_ij = np.linalg.norm(mol1.coords[s][i] - mol1.coords[s][j])
                 if r_ij < min_dist:
-                    print("frame, bond number, atom i, atom j, bond dist (A), ref dist (A)")
-                    print(s, i_bond, atom_indices[i_bond][0],
-                          atom_indices[i_bond][1], r_ij, bond_dist[i_bond])
+                    print("frame, atom i, atom j, pair dist (A)")
+                    print(s, i, j, r_ij)
                     print("Writing .pdb file...")
                     output.write_pdb(mol1.coords[s][:][:], "name", 1, mol1.atoms,
                         atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")

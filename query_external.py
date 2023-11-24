@@ -91,5 +91,11 @@ def pop2D(sample_freq, n_bins, CV_list, molecule, source, output_dir):
     x, y = np.meshgrid(np.linspace(-180, 180, n_bins),
                        np.linspace(-180, 180, n_bins))
     output.heatmap2D(x, y, pop, pop.max(), output_dir, "pop_2d", "gist_heat", fe_map=False)
+    count = 0
+    for i in range(n_bins):
+        for j in range(n_bins):
+            if pop[i][j] != 0:
+                count += 1
+    print("% of surface populated:", 100*count /(n_bins*n_bins))
     return None
 
