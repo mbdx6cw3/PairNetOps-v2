@@ -46,14 +46,25 @@ def setup(pairfenet, ani2x, empirical, plat):
         potential = MLPotential('ani2x')
         system = potential.createSystem(top.topology)
     else:
-        system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer)
+        # for rigid water to be found the water residue name must be "HOH"
+        system = top.createSystem(nonbondedMethod=PME,
+                                  nonbondedCutoff=1*nanometer,
+                                  ewaldErrorTolerance=0.0005,
+                                  constraints=None,
+                                  removeCMMotion=True,
+                                  rigidWater=True,
+                                  switchDistance=None)
+
+    #print(system.getNumConstraints())
 
     # define non-bonded force which contains empirical potential parameters
     #nb_force = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-    #for i in range(system.getNumParticles()):
+    #for i in range(system.getNumParticles())
     #    print(nb_force.getParticleParameters(i))
+    #exit()
 
     # for MLP define custom external force and set initial forces to zero
+    force = 0
     if pairfenet == True:
         force = CustomExternalForce("-fx*x-fy*y-fz*z")
         system.addForce(force)
@@ -62,8 +73,6 @@ def setup(pairfenet, ani2x, empirical, plat):
         force.addPerParticleParameter("fz")
         for j in range(n_atoms):
             force.addParticle(j, (0, 0, 0))
-    elif empirical == True or ani2x == True:
-        force = 0 # no custom force, i.e. just use potential as defined in .top
 
     # define ensemble, thermostat and integrator
     if ensemble == "nve":
@@ -71,8 +80,7 @@ def setup(pairfenet, ani2x, empirical, plat):
     elif ensemble == "nvt":
         if thermostat == "nose_hoover":
             integrator = integrators.NoseHooverChainVelocityVerletIntegrator\
-                (system, temp*kelvin, coll_freq / picosecond, ts*picoseconds,
-                 10, 5, 5)
+                (system, temp*kelvin, coll_freq / picosecond, ts*picoseconds, 10, 5, 5)
         elif thermostat == "langevin":
             integrator = LangevinMiddleIntegrator(temp*kelvin,
                 coll_freq / picosecond, ts*picoseconds)
@@ -88,16 +96,32 @@ def setup(pairfenet, ani2x, empirical, plat):
     # set up simulation
     simulation = Simulation(top.topology, system, integrator, platform)
     simulation.context.setPositions(gro.positions)
-
     # minimise initial configuration
     if minim:
         simulation.minimizeEnergy()
+    if ensemble == "nvt":
+        simulation.context.setVelocitiesToTemperature(temp*kelvin)
+
+    # check everything is set up correctly and print to output
+    #nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+    #for i in range(system.getNumParticles()):
+    #    charge, sigma, epsilon = nb.getParticleParameters(i)
+    #    print(charge,sigma,epsilon)
+    #print(nb.getEwaldErrorTolerance())
+    #print(nb.getNonbondedMethod())
+    #[alpha_ewald, nx, ny, nz] = nb.getPMEParameters()
+    #print(nx,ny,nz)
+    #alpha_ewald = (1.0 / nb.getCutoffDistance()) * np.sqrt(-np.log(2.0 * nb.getEwaldErrorTolerance()))
+    #print(alpha_ewald)
+    #print(nb.getCutoffDistance())
+    #print(gro.getPeriodicBoxVectors())
 
     # TODO: somewhere we need to define whether charges will come from a separate ANN or the same one as energy and forces
 
-    return simulation, output_dir, md_params, gro, force
+    return simulation, system, output_dir, md_params, gro, force
 
-def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, force):
+def MD(simulation, system, pairfenet, ani2x, empirical, output_dir, md_params,
+       gro, force):
 
     n_steps = md_params["n_steps"]
     print_trj = md_params["print_trj"]
@@ -125,6 +149,13 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
         model.summary()
         model.load_weights(f"./{input_dir}/best_ever_model")
 
+    if empirical == True:
+        nonbonded = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+        charges = np.zeros(n_atoms)
+        for i in range(system.getNumParticles()):
+            charge, sigma, epsilon = nonbonded.getParticleParameters(i)
+            charges[i] = charge.value_in_unit(elementary_charge)
+
     simulation.reporters.append(StateDataReporter(f"./{output_dir}/openmm.csv",
         reportInterval=print_summary,step=True, time=True, potentialEnergy=True,
         kineticEnergy=True, temperature=True, separator=" "))
@@ -144,35 +175,51 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
-        if ani2x == True:
-            charges = np.zeros(n_atoms)
+        ##velocities = simulation.context.getState(getVelocities=True). \
+        #    getVelocities(asNumpy=True)
 
-        if pairfenet == True:
+        #print(velocities)
+        #exit()
+
+        if i == 0:
+            output.gro(n_atoms, vectors, "0.0000", coords / nanometer,
+                gro.atomNames, output_dir, "output")
+
+        #if ani2x == True:
+        #    charges = np.zeros(n_atoms)
+
+        #if pairfenet == True:
 
             # clears session to avoid running out of memory
-            if (i % 1000) == 0:
-                tf.keras.backend.clear_session()
+            #if (i % 1000) == 0:
+            #    tf.keras.backend.clear_session()
 
             # predict forces
             # predict_on_batch must faster than predict when only single structure
-            prediction = model.predict_on_batch([np.reshape(coords
-                [:n_atoms]/angstrom, (1, -1, 3)), np.reshape(atoms,(1, -1))])
+            #prediction = model.predict_on_batch([np.reshape(coords
+            #    [:n_atoms]/angstrom, (1, -1, 3)), np.reshape(atoms,(1, -1))])
             # convert to OpenMM internal units
-            forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom,
-                (-1, 3))
+           # forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom,
+            #    (-1, 3))
 
             # assign forces to ML atoms
-            for j in range(n_atoms):
-                force.setParticleParameters(j, j, forces[j])
-            force.updateParametersInContext(simulation.context)
+            #for j in range(n_atoms):
+            #    force.setParticleParameters(j, j, forces[j])
+            #force.updateParametersInContext(simulation.context)
 
             # TODO: dynamically reassign charges to ML atoms
             # set charges to zero for now
-            charges = np.zeros(n_atoms)
+            #charges = np.zeros(n_atoms)
 
+        # advance trajectory one timestep
+        simulation.step(1)
+
+        # print output
         if (i % print_data) == 0 or i == 0:
             time = simulation.context.getState().getTime()
             state = simulation.context.getState(getEnergy=True)
+            coords = simulation.context.getState(getPositions=True). \
+                getPositions(asNumpy=True).in_units_of(angstrom)
             velocities = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True)
             forces = simulation.context.getState(getForces=True). \
@@ -186,22 +233,22 @@ def MD(simulation, pairfenet, ani2x, empirical, output_dir, md_params, gro, forc
                 # charges = nb_force.getParticleParameters(0)???
 
             # predicts energies in kcal/mol
-            if pairfenet == True:
-                PE = prediction[1][0][0]
-            else:
-                PE = state.getPotentialEnergy() / kilocalories_per_mole
+            #if pairfenet == True:
+             #   PE = prediction[1][0][0]
+            #else:
+            PE = state.getPotentialEnergy() / kilocalories_per_mole
 
-            np.savetxt(f1, coords[:n_atoms])
-            np.savetxt(f2, forces[:n_atoms])
-            np.savetxt(f3, velocities[:n_atoms])
-            f4.write(f"{PE}\n")
-            np.savetxt(f5, charges[:n_atoms])
+        np.savetxt(f1, coords[:n_atoms])
+        np.savetxt(f2, forces[:n_atoms])
+        np.savetxt(f3, velocities[:n_atoms])
+        f4.write(f"{PE}\n")
+        np.savetxt(f5, charges[:n_atoms])
 
-        if (i % print_trj) == 0 or i == 0:
+        #TODO: providing PBCs are actually applied need to wrap coords here
+        #TODO: do we need to do this for coords above too?
+        if (i % print_trj) == 0:
             output.gro(n_atoms, vectors, time/picoseconds, coords/nanometer,
                        gro.atomNames, output_dir, "output")
-
-        simulation.step(1)
 
     f1.close()
     f2.close()

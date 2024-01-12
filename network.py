@@ -376,7 +376,6 @@ class Network(object):
         elif charge_scheme == 2:
             corr = True
             charge = Q(n_atoms, corr, name='charge')(output_layer2)
-
         # prediction of decomposed and recomposed charge pairs
         elif charge_scheme == 3:
             charge = Q(n_atoms, name='charge')(output_layer2)

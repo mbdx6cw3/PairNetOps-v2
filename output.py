@@ -141,10 +141,13 @@ def write_gau(mol, init, set_size, output_dir, opt_prop):
 
     # create QM input files
     for item in range(init, set_size):
-        if (item % opt_prop) == 0:
-            text = text_opt
-        else:
+        if item == 0:
             text = text_spe
+        else:
+            if (item % opt_prop) == 0:
+                text = text_opt
+            else:
+                text = text_spe
         qm_file = open(f"./{output_dir}/mol_{item+1-init}.gjf", "w")
         new_text = text.replace("index", f"{item+1-init}")
         print(new_text, file=qm_file)
@@ -155,7 +158,7 @@ def write_gau(mol, init, set_size, output_dir, opt_prop):
                   f"{mol.coords[item,atom,2]:.8f}",
                   file=qm_file) # convert to Angstroms
         ### TODO: remove hard-coding!
-        if (item % opt_prop) == 0:
+        if (item % opt_prop) == 0 and item != 0:
             print(file=qm_file)
             print("5 4 2 3 B", file=qm_file)
             print("5 4 2 3 F", file=qm_file)

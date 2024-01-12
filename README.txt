@@ -15,7 +15,7 @@ This package can be used for the following tasks:
 LOCATION
 --------------------------------------------------------------------------------
 The code for version is located on the CSF here:
-    /mnt/iusers01/rb01/mbdx6cw3/bin/PairNetOps/
+    /mnt/iusers01/rb01/mbdx6cw3/bin/PairNetOps_v2/
 
 SETUP
 --------------------------------------------------------------------------------
@@ -38,8 +38,10 @@ run the code. Setup a new Conda environment using the following commands:
 5)  Install some required basic Python packages.
     >   mamba install matplotlib numpy
 
+STEPS 6) onwards are different depending on whether you want to install GPU version...
+
 6)  Install OpenMM packages and specific version of Cuda (for running MD simulations)
-    >   mamba install openmm openmm-plumed openmmtools plumed cudatoolkit=11.8.0
+    >   mamba install openmm openmm-plumed openmmtools cudatoolkit=11.8.0
 
 7)  Install Tensorflow (for training, loading and testing PairFENet MLPs)
     a) CPU only install of tensorflow...
@@ -70,7 +72,7 @@ Run PairNetOps.
         > python3 main.py
 
         From a job script (e.g.):
-        > { echo "1"; echo "1"; } | python3 $HOME/bin/PairNetOps/main.py
+        > { echo "1"; echo "1"; } | python3 /mnt/iusers01/rb01/mbdx6cw3/bin/PairNetOps_v2/main.py
 
 Many options require the molecule's nuclear_charges.txt file so it's a good idea
 to have this wherever you are running the code from.
@@ -83,7 +85,7 @@ coordinate and topology files.
     [1] Use an empirical potential.
     [2] Use a PairFENet trained machine learned potential.
     [3] Use ANI-2x.
-        [OpenCL] - run on GPU
+        [GPU] - run on GPU
         [CPU] - run on CPU
 
 [2] Analyse MD output. Recommended to use interactively.
@@ -104,7 +106,7 @@ optimisation.
     [3] - Calculate energy wrt to geometric variable.
     [4] - Calculate distance matrix RMSD.
 
-[5] Convert MD output into QM input. Recommended to use interactively.
+[5] Convert QM output into ML or MD input. Recommended to submit to batch.
     [1] - Convert to ML input.
     You will need a permutations.txt file if doing permutational shuffling.
     [2] - Convert to MD input (.gro format).

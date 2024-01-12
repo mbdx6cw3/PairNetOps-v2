@@ -29,27 +29,25 @@ class Molecule(object):
                 self.energies = np.vstack(other.energies)
 
 class dataset():
-    def __init__(self, mol, input_dir, set_size):
+    def __init__(self, mol, input_dir, set_size, read_charge):
         file_list = ["./nuclear_charges.txt", f"./{input_dir}/coords.txt",
             f"./{input_dir}/forces.txt", f"./{input_dir}/energies.txt",
             f"./{input_dir}/charges.txt"]
         element = {1: "H", 6: "C", 7: "N", 8: "O"}
         self.atoms = []
-        self.coords = []
         self.atom_names = []
-        self.energies = []
-        self.forces = []
-        self.charges = []
         input_ = open(file_list[0], 'r')
         for atom in input_:
             self.atoms.append(int(atom))
             self.atom_names.append(element[self.atoms[-1]])
-            self.n_atom = len(self.atoms)
-            self.coords = np.reshape(np.loadtxt(file_list[1], max_rows=set_size
-                * self.n_atom), (set_size, self.n_atom, 3))
-            self.energies = np.loadtxt(file_list[3], max_rows=set_size)
-            self.forces = np.reshape(np.loadtxt(file_list[2], max_rows=set_size
-                * self.n_atom), (set_size, self.n_atom, 3))
+        self.n_atom = len(self.atoms)
+        self.charges = np.zeros((set_size, self.n_atom))
+        self.coords = np.reshape(np.loadtxt(file_list[1], max_rows=set_size
+            * self.n_atom), (set_size, self.n_atom, 3))
+        self.energies = np.loadtxt(file_list[3], max_rows=set_size)
+        self.forces = np.reshape(np.loadtxt(file_list[2], max_rows=set_size
+            * self.n_atom), (set_size, self.n_atom, 3))
+        if read_charge:
             self.charges = np.reshape(np.loadtxt(file_list[4], max_rows=set_size
                 * self.n_atom), (set_size, self.n_atom))
         mol.get_ZCFE(self)  # populate molecule class

@@ -26,9 +26,10 @@ def main():
             [3] - Convert MD output into QM input.
             [4] - Analyse QM output.
             [5] - Convert QM output into ML or MD input.
-            [6] - Train or Test an ANN.
+            [6] - Train or test an ANN.
             [7] - Query external dataset.
             [8] - Generate torsional scan QM input.
+            [9] - Split dataset.
             > """))
     except ValueError:
         print("Invalid Value")
@@ -70,12 +71,12 @@ def main():
             plat = "OpenCL"
 
         # setup simulation
-        simulation, output_dir, md_params, gro, force = \
+        simulation, system, output_dir, md_params, gro, force = \
             openMM.setup(pairfenet, ani, empirical, plat)
 
         # run simulation
-        openMM.MD(simulation, pairfenet, ani, empirical, output_dir, md_params,
-            gro, force)
+        openMM.MD(simulation, system, pairfenet, ani, empirical, output_dir,
+                  md_params, gro, force)
 
         print(datetime.now() - startTime)
 
@@ -112,14 +113,16 @@ def main():
                     break
                 except ValueError:
                     print("Invalid Value")
+            read_charge = True
             mol1 = read_inputs.Molecule()
-            read_inputs.dataset(mol1, input_dir1, set_size)
+            read_inputs.dataset(mol1, input_dir1, set_size, read_charge)
 
         # initiate molecule class for QM dataset
         if option_flag == 1 or option_flag == 2 or option_flag == 3:
             input_dir2 = "qm_data"
+            read_charge = True
             mol2 = read_inputs.Molecule()
-            read_inputs.dataset(mol2, input_dir2, set_size)
+            read_inputs.dataset(mol2, input_dir2, set_size, read_charge)
 
         if option_flag == 1:
             print("Calculating force S-curve...")
@@ -213,8 +216,9 @@ def main():
             print("Error - no input files detected")
             exit()
 
+        read_charge = True
         mol = read_inputs.Molecule()
-        read_inputs.dataset(mol, input_dir, set_size)
+        read_inputs.dataset(mol, input_dir, set_size, read_charge)
         output.write_gau(mol, init, set_size, output_dir, opt_prop)
 
     elif input_flag == 4:
@@ -237,8 +241,9 @@ def main():
             exit()
 
         # initiate molecule class and parse dataset
+        read_charge = True
         mol = read_inputs.Molecule()
-        read_inputs.dataset(mol, input_dir, set_size)
+        read_inputs.dataset(mol, input_dir, set_size, read_charge)
 
         option_flag = int(input("""
               [1] - Calculate force and energy probability distributions.
@@ -330,8 +335,9 @@ def main():
                 exit()
 
             # initiate molecule class and parse dataset
+            read_charge = True
             mol = read_inputs.Molecule()
-            read_inputs.dataset(mol, input_dir, set_size)
+            read_inputs.dataset(mol, input_dir, set_size, read_charge)
 
             output_dir = "md_input"
             isExist = os.path.exists(output_dir)
@@ -386,7 +392,8 @@ def main():
         # define training and test sets.
         n_train, n_val, n_test = n_data[0], n_data[1], n_data[2]
         set_size = n_train + n_val + n_test
-        read_inputs.dataset(mol, input_dir2, set_size)
+        read_charge = True
+        read_inputs.dataset(mol, input_dir2, set_size, read_charge)
         mol.orig_energies = np.copy(mol.energies)
 
         # set job flags
@@ -422,6 +429,7 @@ def main():
 
             mol.energies = ((prescale[3] - prescale[2]) * (mol.orig_energies
                 - prescale[0]) / (prescale[1] - prescale[0]) + prescale[2])
+            # TODO: why is this not nuclear_charges.txt?
             atoms = np.loadtxt(f"./{input_dir1}/atoms.txt",
                                   dtype=np.float32).reshape(-1)
             model = network.build(len(atoms), ann_params, prescale)
@@ -481,18 +489,14 @@ def main():
         print(datetime.now() - startTime)
 
     elif input_flag == 7:
-        print("Query external dataset.")
-        output_dir = "plots_and_data"
-        isExist = os.path.exists(output_dir)
-        if not isExist:
-            os.makedirs(output_dir)
+        print("Loading External Dataset...")
+
         # options here for MD22/SPICE/etc
         try:
-            inp_vsn = input("""
-                Enter the dataset version:
+            inp_vsn = input("""Enter the dataset version:
                     [1] - original MD17
                     [2] - revised MD17
-                > """)
+                    > """)
         except ValueError:
             print("Invalid Value")
             exit()
@@ -505,18 +509,18 @@ def main():
             exit()
         try:
             inp_mol = int(input("""
-            Enter the molecule:
-                 1 : aspirin
-                 2 : azobenzene
-                 3 : benzene
-                 4 : ethanol
-                 5 : malonaldehyde
-                 6 : naphthalene
-                 7 : paracetamol
-                 8 : salicylic
-                 9 : toluene
-                10 : uracil
-            > """))
+                        Enter the molecule:
+                             1 : aspirin
+                             2 : azobenzene
+                             3 : benzene
+                             4 : ethanol
+                             5 : malonaldehyde
+                             6 : naphthalene
+                             7 : paracetamol
+                             8 : salicylic
+                             9 : toluene
+                            10 : uracil
+                        > """))
         except ValueError:
             print("Invalid Value")
             exit()
@@ -549,32 +553,45 @@ def main():
             molecule = "toluene"
         elif inp_mol == 10:
             molecule = "uracil"
-        sample_freq = int(input("""
-            Sample data every n frames:
-            > """))
 
-        while True:
-            try:
-                n_CV = int(input("Enter the number of CVs > "))
-                break
-            except ValueError:
-                print("Invalid Value")
-            except n_CV > 2:
-                print("Number of dihedral angles can only be 1 or 2")
+        option_flag = int(input("""
+                    [1] - Query geometry.
+                    [2] - Generate training subset.
+                    > """))
 
-        if n_CV == 1:
-            query_external.geom(sample_freq, molecule, source, output_dir)
-        elif n_CV == 2:
-            CV_list = np.empty(shape=[n_CV, 4], dtype=int)
-            for i_CV in range(n_CV):
-                atom_indices = input(f"""
-                Enter atom indices for dihedral {i_CV+1} separated by spaces:
-                e.g. "5 4 6 10"
-                Consult mapping.dat for connectivity.
-                > """)
-                CV_list[i_CV,:] = np.array(atom_indices.split())
-            n_bins = int(input("Enter the number of bins > "))
-            query_external.pop2D(sample_freq, n_bins, CV_list, molecule, source, output_dir)
+        if option_flag == 1:
+            print("Query geometry.")
+            output_dir = "plots_and_data"
+            isExist = os.path.exists(output_dir)
+            if not isExist:
+                os.makedirs(output_dir)
+
+            sample_freq = int(input("""Sample data every n frames:
+                            > """))
+
+            while True:
+                try:
+                    n_CV = int(input("Enter the number of CVs > "))
+                    break
+                except ValueError:
+                    print("Invalid Value")
+                except n_CV > 2:
+                    print("Number of dihedral angles can only be 1 or 2")
+
+            if n_CV == 1:
+                query_external.geom(sample_freq, molecule, source, output_dir)
+            elif n_CV == 2:
+                CV_list = np.empty(shape=[n_CV, 4], dtype=int)
+                for i_CV in range(n_CV):
+                    atom_indices = input(f"""
+                    Enter atom indices for dihedral {i_CV+1} separated by spaces:
+                    e.g. "5 4 6 10"
+                    Consult mapping.dat for connectivity.
+                    > """)
+                    CV_list[i_CV,:] = np.array(atom_indices.split())
+                n_bins = int(input("Enter the number of bins > "))
+                query_external.pop2D(sample_freq, n_bins, CV_list, molecule,
+                                     source, output_dir)
 
     # put all this into a module/functions
     elif input_flag == 8:
@@ -667,6 +684,46 @@ def main():
             output.write_pdb(coord[item][:][:], "sali", 1, atoms, atom_names,
                              f"./{output_dir}/mol_{item + 1}.pdb", "w")
         return None
+
+    # shrink dataset
+    elif input_flag == 9:
+        print("Splitting dataset...")
+        input_dir = "qm_data"
+        isExist = os.path.exists(input_dir)
+        if not isExist:
+            print("Error - no input files detected")
+            exit()
+
+        output_dir = "qm_data_split"
+        isExist = os.path.exists(output_dir)
+        if isExist:
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
+
+        while True:
+            try:
+                set_size = int(input("Enter the dataset size > "))
+                break
+            except ValueError:
+                print("Invalid Value")
+
+        # initiate molecule class and parse dataset
+        read_charge = False
+        mol = read_inputs.Molecule()
+        read_inputs.dataset(mol, input_dir, set_size, read_charge)
+
+        # I don't know whether indices provided with rMD17 are indexed to 0 or 1
+        indices = np.loadtxt("split_indices.dat", dtype=int)
+        new_energies = np.take(mol.energies, indices, axis=0)
+        new_coords = np.take(mol.coords, indices, axis=0)
+        new_forces = np.take(mol.forces, indices, axis=0)
+        np.savetxt(f"./{output_dir}/energies.txt", new_energies, fmt="%.10f")
+        coord_file = open(f"./{output_dir}/coords.txt", "w")
+        force_file = open(f"./{output_dir}/forces.txt", "w")
+        for item in range(indices.shape[0]):
+            for atom in range(mol.n_atom):
+                print(*new_coords[item, atom],file=coord_file)
+                print(*new_forces[item, atom],file=force_file)
 
 
 def generate_rotation_matrix(angle, axis):
