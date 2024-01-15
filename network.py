@@ -255,13 +255,14 @@ class Network(object):
         test_prediction = model.predict([test_coords, test_atoms])
         print(datetime.now()-startTime)
         print(f"\nError summary over {len(mol.test)} test structures")
-        print(f"                       MeanAE | MaxAE   | L1 (%)")
+        print(f"                       MeanAE  |   MaxAE  | L1 (%)")
+        print(f"--------------------------------------------------")
 
         # force test output
         test_output_F = np.take(mol.forces, mol.test, axis=0)
         mean_ae, max_ae, L1 = Network.summary(test_output_F.flatten(),
             test_prediction[0].flatten(), output_dir, "f")
-        print(f"F (kcal mol^-1 A^-1): {mean_ae:.4f}  | {max_ae:.4f}  | {L1:.1f} ")
+        print(f"F (kcal mol^-1 A^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
         np.savetxt(f"./{output_dir}/f_test.dat", np.column_stack((
             test_output_F.flatten(), test_prediction[0].flatten())),
             delimiter=" ", fmt="%.6f")
@@ -270,7 +271,7 @@ class Network(object):
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)
         mean_ae, max_ae, L1 = Network.summary(test_output_E.flatten(),
             test_prediction[1].flatten(), output_dir, "e")
-        print(f"E (kcal mol^-1)     : {mean_ae:.4f}  | {max_ae:.4f}  | {L1:.1f} ")
+        print(f"E (kcal mol^-1)     : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
         np.savetxt(f"./{output_dir}/e_test.dat", np.column_stack((
             test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
@@ -290,7 +291,7 @@ class Network(object):
         test_output_q = np.take(mol.charges, mol.test, axis=0)
         mean_ae, max_ae, L1 = Network.summary(test_output_q.flatten(),
             corr_prediction.flatten(), output_dir, "q")
-        print(f"Q (e)               : {mean_ae:.4f}  | {max_ae:.4f}  | {L1:.1f} ")
+        print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
