@@ -27,7 +27,7 @@ class Molecule(object):
         if len(other.energies) > 0:
             self.energies = np.vstack(other.energies)
 
-class dataset():
+class Dataset():
     def __init__(self, mol, input_dir, set_size, read_charge):
         file_list = ["./nuclear_charges.txt", f"./{input_dir}/coords.txt",
             f"./{input_dir}/forces.txt", f"./{input_dir}/energies.txt",

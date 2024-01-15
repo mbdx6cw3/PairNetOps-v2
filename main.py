@@ -18,9 +18,7 @@ def main():
     import calc_geom
 
     # read primary user input
-    # TODO: merge 7, 2, 4?
-    # TODO: merge 3 and 5?
-    # TODO: merge 8 and 9?
+    # TODO: completely change input structure?
     try:
         input_flag = int(input(""" What would you like to do?
             [1] - Run MD simulation.
@@ -117,14 +115,14 @@ def main():
                     print("Invalid Value")
             read_charge = True
             mol1 = read_inputs.Molecule()
-            read_inputs.dataset(mol1, input_dir1, set_size, read_charge)
+            read_inputs.Dataset(mol1, input_dir1, set_size, read_charge)
 
         # initiate molecule class for QM dataset
         if option_flag == 1 or option_flag == 2 or option_flag == 3:
             input_dir2 = "qm_data"
             read_charge = True
             mol2 = read_inputs.Molecule()
-            read_inputs.dataset(mol2, input_dir2, set_size, read_charge)
+            read_inputs.Dataset(mol2, input_dir2, set_size, read_charge)
 
         if option_flag == 1:
             print("Calculating force S-curve...")
@@ -216,7 +214,7 @@ def main():
 
         read_charge = True
         mol = read_inputs.Molecule()
-        read_inputs.dataset(mol, input_dir, set_size, read_charge)
+        read_inputs.Dataset(mol, input_dir, set_size, read_charge)
         output.write_gau(mol, init, set_size, output_dir, opt_prop)
 
     elif input_flag == 4:
@@ -241,7 +239,7 @@ def main():
         # initiate molecule class and parse dataset
         read_charge = True
         mol = read_inputs.Molecule()
-        read_inputs.dataset(mol, input_dir, set_size, read_charge)
+        read_inputs.Dataset(mol, input_dir, set_size, read_charge)
 
         option_flag = int(input("""
               [1] - Calculate force and energy probability distributions.
@@ -335,7 +333,7 @@ def main():
             # initiate molecule class and parse dataset
             read_charge = True
             mol = read_inputs.Molecule()
-            read_inputs.dataset(mol, input_dir, set_size, read_charge)
+            read_inputs.Dataset(mol, input_dir, set_size, read_charge)
 
             output_dir = "md_input"
             isExist = os.path.exists(output_dir)
@@ -391,7 +389,7 @@ def main():
         n_train, n_val, n_test = n_data[0], n_data[1], n_data[2]
         set_size = n_train + n_val + n_test
         read_charge = True
-        read_inputs.dataset(mol, input_dir2, set_size, read_charge)
+        read_inputs.Dataset(mol, input_dir2, set_size, read_charge)
         mol.orig_energies = np.copy(mol.energies)
 
         # set job flags
