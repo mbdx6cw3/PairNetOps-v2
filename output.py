@@ -103,7 +103,8 @@ def scurve(baseline, values, output_dir, output_file):
         "% of forces below error", f"{output_file}", output_dir)
     np.savetxt(f"./{output_dir}/{output_file}.dat", np.column_stack((bin_edges,
         hist)), fmt='%.6f', delimiter = " ")
-    return None
+    i_L1 = (np.abs(bin_edges - 1.0)).argmin()
+    return hist[i_L1]
 
 
 def heatmap2D(x, y, z, z_max, output_dir, file, cmap, fe_map):

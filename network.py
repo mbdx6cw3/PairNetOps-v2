@@ -255,22 +255,22 @@ class Network(object):
         test_prediction = model.predict([test_coords, test_atoms])
         print(datetime.now()-startTime)
         print(f"\nError summary over {len(mol.test)} test structures")
-        print(f"                    MeanAE | MaxAE | L1 (%)")
+        print(f"                       MeanAE | MaxAE   | L1 (%)")
 
         # force test output
         test_output_F = np.take(mol.forces, mol.test, axis=0)
-        mean_ae, max_ae = Network.summary(test_output_F.flatten(),
+        mean_ae, max_ae, L1 = Network.summary(test_output_F.flatten(),
             test_prediction[0].flatten(), output_dir, "f")
-        print(f"Force (kcal mol^-1 A^-1):    {mean_ae} {max_ae} ")
+        print(f"F (kcal mol^-1 A^-1): {mean_ae:.4f}  | {max_ae:.4f}  | {L1:.1f} ")
         np.savetxt(f"./{output_dir}/f_test.dat", np.column_stack((
             test_output_F.flatten(), test_prediction[0].flatten())),
             delimiter=" ", fmt="%.6f")
 
         # energy test output
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)
-        mean_ae, max_ae = Network.summary(test_output_E.flatten(),
+        mean_ae, max_ae, L1 = Network.summary(test_output_E.flatten(),
             test_prediction[1].flatten(), output_dir, "e")
-        print(f"Energy (kcal mol^-1)    :    {mean_ae} {max_ae} ")
+        print(f"E (kcal mol^-1)     : {mean_ae:.4f}  | {max_ae:.4f}  | {L1:.1f} ")
         np.savetxt(f"./{output_dir}/e_test.dat", np.column_stack((
             test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
@@ -282,15 +282,15 @@ class Network(object):
             for s in range(len(test_output_E)):
                 for atm in range(mol.n_atom):
                     corr_prediction[s][atm] = test_prediction[2][s][atm] - \
-                                              (sum(test_prediction[2][s]) / mol.n_atom)
+                        (sum(test_prediction[2][s]) / mol.n_atom)
         elif charge_scheme == 2:
             corr_prediction = test_prediction[2][:][:]
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)
-        mean_ae, max_ae = Network.summary(test_output_q.flatten(),
+        mean_ae, max_ae, L1 = Network.summary(test_output_q.flatten(),
             corr_prediction.flatten(), output_dir, "q")
-        print(f"Charge (e)              :    {mean_ae} {max_ae}  ")
+        print(f"Q (e)               : {mean_ae:.4f}  | {max_ae:.4f}  | {L1:.1f} ")
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
@@ -397,8 +397,7 @@ class Network(object):
             if abs(diff) > max_ae:
                 max_ae = abs(diff)
         mean_ae = mean_ae / _N
-        output.scurve(all_actual.flatten(), all_prediction.flatten(),
+        L1 = output.scurve(all_actual.flatten(), all_prediction.flatten(),
                       output_dir, f"{label}_scurve")
-
-        return mean_ae, max_ae
+        return mean_ae, max_ae, L1
 
