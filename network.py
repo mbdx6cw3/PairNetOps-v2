@@ -1,21 +1,19 @@
 #!/usr/bin/env python
 
-'''
-This module is for running a NN with a training set of data.
-'''
-from __future__ import print_function #for tf printing
+#from __future__ import print_function #for tf printing
 import numpy as np
-from tensorflow import keras
-from tensorflow.keras.layers import Input, Dense, Layer, Dropout
-from tensorflow.keras.models import Model, load_model
-from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
-from tensorflow.keras import backend as K
 import tensorflow as tf
-import time
-import output
+from tensorflow.keras.layers import Input, Dense, Layer
+from tensorflow.keras.models import Model
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.optimizers import Adam
+import time, output, os
 from datetime import datetime
 
 start_time = time.time()
+
+# suppress printing of information messages
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
 
 class NuclearChargePairs(Layer):
     def __init__(self, _NC2, n_atoms, **kwargs):
@@ -43,7 +41,7 @@ class CoordsToNRF(Layer):
         self.max_NRF = max_NRF
         self._NC2 = _NC2
         self.n_atoms = n_atoms
-        self.au2kcalmola = 627.5095 * 0.529177 #TODO: remove
+        self.au2kcalmola = 627.5095 * 0.529177 #TODO: remove?
 
 
     def compute_output_shape(self, input_shape):
@@ -176,9 +174,17 @@ class Network(object):
         self.model = None
 
     def train(self, model, mol, ann_params, output_dir1, output_dir2):
-        atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
+
+        # ensures that tensorflow does not use more cores than requested
+        NUMCORES = int(os.getenv("NSLOTS", 1))
+        sess = tf.compat.v1.Session(
+            config=tf.compat.v1.ConfigProto(
+                inter_op_parallelism_threads=NUMCORES,
+                allow_soft_placement=True, device_count={'CPU': NUMCORES}))
+        tf.compat.v1.keras.backend.set_session(sess)
 
         # prepare training and validation data
+        atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
         train_coords = np.take(mol.coords, mol.train, axis=0)
         val_coords = np.take(mol.coords, mol.val, axis=0)
         train_energies = np.take(mol.orig_energies, mol.train, axis=0)
@@ -208,7 +214,7 @@ class Network(object):
                 save_best_only=True, save_weights_only=True)
         rlrop = ReduceLROnPlateau(monitor=monitor_loss, factor=lr_factor,
                 patience=lr_patience, min_lr=min_lr)
-        optimizer = keras.optimizers.Adam(learning_rate=init_lr,
+        optimizer = Adam(learning_rate=init_lr,
                 beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
 
         # define loss function
@@ -218,7 +224,7 @@ class Network(object):
 
         # print out the model here
         model.summary()
-        print('initial learning rate:', K.eval(model.optimizer.lr))
+        print('initial learning rate:', init_lr)
 
         # train the network
         result = model.fit([train_coords, train_atoms],

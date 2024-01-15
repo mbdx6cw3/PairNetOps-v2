@@ -13,7 +13,6 @@ def main():
     import numpy as np
     from network import Network
     from datetime import datetime
-    import tensorflow as tf
     from itertools import islice
     import calc_geom
 
@@ -358,14 +357,6 @@ def main():
             [4] - Load, train and test a network.
             [5] - Load and test a network.
             > """))
-
-        # ensures that tensorflow does not use more cores than requested
-        NUMCORES = int(os.getenv("NSLOTS", 1))
-        sess = tf.compat.v1.Session(
-            config=tf.compat.v1.ConfigProto(
-                inter_op_parallelism_threads=NUMCORES,
-                allow_soft_placement=True, device_count={'CPU': NUMCORES}))
-        tf.compat.v1.keras.backend.set_session(sess)
 
         # make new directory to store output
         output_dir1 = "plots_and_data"
