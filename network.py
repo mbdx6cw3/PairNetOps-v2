@@ -298,7 +298,6 @@ class Network(object):
 
         # TODO: predict electrostatic energies instead but still plot partial vs reference charges
         # we care about electrostatic energy and partial charges
-
         return None
 
 

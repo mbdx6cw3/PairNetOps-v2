@@ -421,15 +421,15 @@ def main():
                 exit()
             print("Loading a trained model...")
             prescale = np.loadtxt(f"./{input_dir1}/prescale.txt",
-                                  dtype=np.float64).reshape(-1)
+                dtype=np.float64).reshape(-1)
 
             mol.energies = ((prescale[3] - prescale[2]) * (mol.orig_energies
                 - prescale[0]) / (prescale[1] - prescale[0]) + prescale[2])
             atoms = np.loadtxt(f"./{input_dir1}/nuclear_charges.txt",
-                                  dtype=np.float32).reshape(-1)
+                dtype=np.float32).reshape(-1)
             model = network.build(len(atoms), ann_params, prescale)
             model.summary()
-            model.load_weights(f"./{input_dir1}/best_ever_model")
+            model.load_weights(f"./{input_dir1}/best_ever_model").expect_partial()
 
         else:
             mol.trainval = [*range(0, n_train + n_val, 1)]
@@ -469,6 +469,7 @@ def main():
             mol.val = [*range(n_train, n_train + n_val, 1)]
             network.train(model, mol, ann_params, output_dir1, output_dir2)
 
+            # TODO: would this be better in network.py?
             print("Saving model...")
             model.save_weights(f"./{output_dir2}/best_ever_model")
 
