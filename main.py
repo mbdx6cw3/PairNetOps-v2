@@ -8,8 +8,7 @@ __email__ = 'christopher.williams@manchester.ac.uk'
 __status__ = 'Development'
 
 def main():
-    import qm2ml, analyseQM, query_external, openMM, read_inputs, output,\
-        analyseMD
+    import qm2ml, analyseQM, query_external, md, read_inputs, output, analyseMD
     import os, shutil
     import numpy as np
     from network import Network
@@ -72,10 +71,10 @@ def main():
 
         # setup simulation
         simulation, system, output_dir, md_params, gro, force = \
-            openMM.setup(pairfenet, ani, empirical, plat)
+            md.setup(pairfenet, ani, empirical, plat)
 
         # run simulation
-        openMM.MD(simulation, system, pairfenet, ani, empirical, output_dir,
+        md.simulate(simulation, system, pairfenet, ani, empirical, output_dir,
                   md_params, gro, force)
 
         print(datetime.now() - startTime)
@@ -182,11 +181,7 @@ def main():
             analyseMD.check_stability(mol1, init, set_size, output_dir)
 
     elif input_flag == 3:
-        print("Convert MD output into QM or ML input.")
-        #option_flag = int(input("""
-         #            [1] - Convert to QM input.
-         #            [2] - Convert to ML input.
-          #           > """))
+        print("Convert MD output into QM input.")
         while True:
             try:
                 set_size = int(input("Enter the dataset size > "))
@@ -429,8 +424,7 @@ def main():
 
             mol.energies = ((prescale[3] - prescale[2]) * (mol.orig_energies
                 - prescale[0]) / (prescale[1] - prescale[0]) + prescale[2])
-            # TODO: why is this not nuclear_charges.txt?
-            atoms = np.loadtxt(f"./{input_dir1}/atoms.txt",
+            atoms = np.loadtxt(f"./{input_dir1}/nuclear_charges.txt",
                                   dtype=np.float32).reshape(-1)
             model = network.build(len(atoms), ann_params, prescale)
             model.summary()
@@ -463,7 +457,7 @@ def main():
                 print("Building model...")
                 model = network.build(len(mol.atoms), ann_params, prescale)
                 model.summary()
-                np.savetxt(f"./{output_dir2}/atoms.txt",
+                np.savetxt(f"./{output_dir2}/nuclear_charges.txt",
                            (np.array(mol.atoms)).reshape(-1, 1))
                 np.savetxt(f"./{output_dir2}/prescale.txt",
                            (np.array(prescale)).reshape(-1, 1))

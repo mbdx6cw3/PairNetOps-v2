@@ -254,27 +254,23 @@ class Network(object):
         startTime = datetime.now()
         test_prediction = model.predict([test_coords, test_atoms])
         print(datetime.now()-startTime)
-        print(f"\nErrors over {len(mol.test)} test structures")
-        print(f"                MAE            RMS            MSD          MSE")
+        print(f"\nError assessment over {len(mol.test)} test structures")
+        print(f"MeanAE                 | MaxAE | L1 (%)")
 
         # force test output
         test_output_F = np.take(mol.forces, mol.test, axis=0)
-        mae, rms, msd = Network.summary(test_output_F.flatten(),
-                test_prediction[0].flatten())
-        print(f"Force:    {mae}    {rms}    {msd}    {rms**2}")
-        output.scurve(test_output_F.flatten(), test_prediction[0].flatten(),
-            output_dir, "f_scurve")
+        mean_ae = Network.summary(test_output_F.flatten(),
+            test_prediction[0].flatten(), output_dir, "f")
+        print(f"Force (kcal mol^-1 A^-1):    {mean_ae}   ")
         np.savetxt(f"./{output_dir}/f_test.dat", np.column_stack((
             test_output_F.flatten(), test_prediction[0].flatten())),
             delimiter=" ", fmt="%.6f")
 
         # energy test output
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)
-        mae, rms, msd = Network.summary(test_output_E.flatten(),
-                test_prediction[1].flatten())
-        print(f"Energy:   {mae}    {rms}    {msd}    {rms ** 2}")
-        output.scurve(test_output_E.flatten(), test_prediction[1].flatten(),
-            output_dir, "e_scurve")
+        mean_ae = Network.summary(test_output_E.flatten(),
+            test_prediction[1].flatten(), output_dir, "e")
+        print(f"Energy (kcal mol^-1)    :    {mean_ae}  ")
         np.savetxt(f"./{output_dir}/e_test.dat", np.column_stack((
             test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
@@ -292,11 +288,9 @@ class Network(object):
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)
-        mae, rms, msd = Network.summary(test_output_q.flatten(),
-                corr_prediction.flatten())
-        print(f"Charge:    {mae}    {rms}    {msd}    {rms**2}")
-        output.scurve(test_output_q.flatten(), corr_prediction.flatten(),
-            output_dir, "q_scurve")
+        mean_ae = Network.summary(test_output_q.flatten(),
+            corr_prediction.flatten(), output_dir, "q")
+        print(f"Charge (e)                 :    {mean_ae}   ")
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
@@ -392,19 +386,15 @@ class Network(object):
         return model
 
 
-    def summary(all_actual, all_prediction):
+    def summary(all_actual, all_prediction, output_dir, label):
         '''Get total errors for array values.'''
         _N = np.size(all_actual)
-        mae = 0
-        rms = 0
-        msd = 0  # mean signed deviation
+        mean_ae = 0
+        output.scurve(all_actual.flatten(), all_prediction.flatten(),
+                      output_dir, f"{label}_scurve")
         for actual, prediction in zip(all_actual, all_prediction):
             diff = prediction - actual
-            mae += np.sum(abs(diff))
-            rms += np.sum(diff ** 2)
-            msd += np.sum(diff)
-        mae = mae / _N
-        rms = (rms / _N) ** 0.5
-        msd = msd / _N
-        return mae, rms, msd
+            mean_ae += np.sum(abs(diff))
+        mean_ae = mean_ae / _N
+        return mean_ae
 

@@ -120,8 +120,8 @@ def setup(pairfenet, ani2x, empirical, plat):
 
     return simulation, system, output_dir, md_params, gro, force
 
-def MD(simulation, system, pairfenet, ani2x, empirical, output_dir, md_params,
-       gro, force):
+def simulate(simulation, system, pairfenet, ani2x, empirical, output_dir,
+        md_params, gro, force):
 
     n_steps = md_params["n_steps"]
     print_trj = md_params["print_trj"]
@@ -139,7 +139,7 @@ def MD(simulation, system, pairfenet, ani2x, empirical, output_dir, md_params,
         print("Loading a trained model...")
         prescale = np.loadtxt(f"./{input_dir}/prescale.txt",
                           dtype=np.float32).reshape(-1)
-        atoms = np.loadtxt(f"./{input_dir}/atoms.txt",
+        atoms = np.loadtxt(f"./{input_dir}/nuclear_charges.txt",
                             dtype=np.float32).reshape(-1)
         ann_params = read_inputs.ann(f"./{input_dir}/ann_params.txt")
         shutil.copy2(f"./{input_dir}/ann_params.txt", f"./{output_dir}")

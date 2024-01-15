@@ -24,9 +24,8 @@ class Molecule(object):
         if len(other.charges) > 0:
             self.charges = np.reshape(np.vstack(other.charges),
                                      (-1, len(self.atoms)))
-        if hasattr(other, 'energies'):
-            if len(other.energies) > 0:
-                self.energies = np.vstack(other.energies)
+        if len(other.energies) > 0:
+            self.energies = np.vstack(other.energies)
 
 class dataset():
     def __init__(self, mol, input_dir, set_size, read_charge):
@@ -44,7 +43,8 @@ class dataset():
         self.charges = np.zeros((set_size, self.n_atom))
         self.coords = np.reshape(np.loadtxt(file_list[1], max_rows=set_size
             * self.n_atom), (set_size, self.n_atom, 3))
-        self.energies = np.loadtxt(file_list[3], max_rows=set_size)
+        self.energies = np.reshape(np.loadtxt(file_list[3], max_rows=set_size),
+            (set_size))
         self.forces = np.reshape(np.loadtxt(file_list[2], max_rows=set_size
             * self.n_atom), (set_size, self.n_atom, 3))
         if read_charge:
