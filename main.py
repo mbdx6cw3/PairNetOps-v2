@@ -18,6 +18,9 @@ def main():
     import calc_geom
 
     # read primary user input
+    # TODO: merge 7, 2, 4?
+    # TODO: merge 3 and 5?
+    # TODO: merge 8 and 9?
     try:
         input_flag = int(input(""" What would you like to do?
             [1] - Run MD simulation.
@@ -28,7 +31,7 @@ def main():
             [6] - Train or test an ANN.
             [7] - Query external dataset.
             [8] - Generate torsional scan QM input.
-            [9] - Split dataset.
+            [9] - Modify dataset.
             > """))
     except ValueError:
         print("Invalid Value")
