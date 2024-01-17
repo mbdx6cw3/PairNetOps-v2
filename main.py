@@ -17,10 +17,10 @@ def main():
     import calc_geom
 
     # read primary user input
-    # TODO: completely change input structure?
+    # TODO: completely change input structure???
     try:
         input_flag = int(input(""" What would you like to do?
-            [1] - Run MD simulation.
+            [1] - MD simulation.
             [2] - Analyse MD output.
             [3] - Convert MD output into QM input.
             [4] - Analyse QM output.
@@ -42,9 +42,9 @@ def main():
     if input_flag == 1:
 
         startTime = datetime.now()
-        option_flag = int(input("""Run MD simulation.
-            [1] - Use empirical potential.
-            [2] - Use PairFENet potential.
+        option_flag = int(input("""MD Simulation.
+            [1] - Use Empirical Potential.
+            [2] - Use PairNet Potential.
             [3] - Use ANI-2x.
             > """))
 
@@ -375,6 +375,7 @@ def main():
         network = Network(mol)
         ann_params = read_inputs.ann("ann_params.txt")
         n_data = ann_params["n_data"]
+        norm_scheme = ann_params["norm_scheme"]
 
         # define training and test sets.
         n_train, n_val, n_test = n_data[0], n_data[1], n_data[2]
@@ -405,17 +406,23 @@ def main():
 
         # load previously trained model
         if ann_load:
+
             input_dir1 = "trained_model"
             isExist = os.path.exists(input_dir1)
             if not isExist:
                 print("Error - previously trained model could not be located.")
                 exit()
+
             print("Loading a trained model...")
             prescale = np.loadtxt(f"./{input_dir1}/prescale.txt",
                 dtype=np.float64).reshape(-1)
-
-            mol.energies = ((prescale[3] - prescale[2]) * (mol.orig_energies
-                - prescale[0]) / (prescale[1] - prescale[0]) + prescale[2])
+            if norm_scheme == "force":
+                mol.energies = ((prescale[3] - prescale[2]) * (mol.orig_energies
+                    - prescale[0]) / (prescale[1] - prescale[0]) + prescale[2])
+            elif norm_scheme == "z-score":
+                mol.energies = (mol.orig_energies - prescale[0]) / prescale[1]
+            elif norm_scheme == "none":
+                mol.energies = mol.orig_energies
             atoms = np.loadtxt(f"./{input_dir1}/nuclear_charges.txt",
                 dtype=np.float32).reshape(-1)
             model = network.build(len(atoms), ann_params, prescale)
@@ -426,9 +433,10 @@ def main():
             mol.trainval = [*range(0, n_train + n_val, 1)]
             trainval_forces = np.take(mol.forces, mol.trainval, axis=0)
             trainval_energies = np.take(mol.energies, mol.trainval, axis=0)
+            # TODO: pre-scaling for charges?!
             trainval_charges = np.take(mol.charges, mol.trainval, axis=0)
             prescale = analyseQM.prescale_e(mol, trainval_energies,
-                                            trainval_forces)
+                trainval_forces, norm_scheme)
 
         # train model
         if ann_train:
@@ -448,7 +456,7 @@ def main():
                 prescale = analyseQM.prescale_eij(mol, prescale)
                 print("Building model...")
                 model = network.build(len(mol.atoms), ann_params, prescale)
-                model.summary()
+                #model.summary()
                 np.savetxt(f"./{output_dir2}/nuclear_charges.txt",
                            (np.array(mol.atoms)).reshape(-1, 1))
                 np.savetxt(f"./{output_dir2}/prescale.txt",

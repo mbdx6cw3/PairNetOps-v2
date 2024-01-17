@@ -1,19 +1,17 @@
 #!/usr/bin/env python
-
-#from __future__ import print_function #for tf printing
 import numpy as np
+import time, output, os
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
-import time, output, os
 from datetime import datetime
 
 start_time = time.time()
 
 # suppress printing of information messages
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+tf.get_logger().setLevel('ERROR')
 
 class NuclearChargePairs(Layer):
     def __init__(self, _NC2, n_atoms, **kwargs):
@@ -69,18 +67,24 @@ class CoordsToNRF(Layer):
 
 
 class E(Layer):
-    def __init__(self, prescale, **kwargs):
+    def __init__(self, prescale, norm_scheme, **kwargs):
         super(E, self).__init__()
         self.prescale = prescale
+        self.norm_scheme = norm_scheme
 
     def compute_output_shape(self, input_shape):
         batch_size = input_shape[0]
         return (batch_size, 1)
 
     def call(self, E_scaled):
-        E = ((E_scaled - self.prescale[2]) /
+        if self.norm_scheme == "z-score":
+            E = E_scaled * self.prescale[1] + self.prescale[0]
+        elif self.norm_scheme == "force":
+            E = ((E_scaled - self.prescale[2]) /
                 (self.prescale[3] - self.prescale[2]) *
                 (self.prescale[1] - self.prescale[0]) + self.prescale[0])
+        elif self.norm_scheme == "none":
+            E = E_scaled
         return E
 
 
@@ -207,7 +211,7 @@ class Network(object):
         lr_factor = ann_params["lr_factor"]
         batch_size = ann_params["batch_size"]
         file_name=f"./{output_dir2}/best_model" # name of model
-        monitor_loss='val_loss' # monitor validation loss during training
+        monitor_loss="val_loss" # monitor validation loss during training
 
         # keras training variables
         mc = ModelCheckpoint(file_name, monitor=monitor_loss, mode='min',
@@ -224,7 +228,7 @@ class Network(object):
 
         # print out the model here
         model.summary()
-        print('initial learning rate:', init_lr)
+        print("Initial learning rate:", init_lr)
 
         # train the network
         result = model.fit([train_coords, train_atoms],
@@ -282,7 +286,7 @@ class Network(object):
             test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
 
-        # correct charge predictions so that there is no net charge
+        # correct charge predictions so that there is zero net charge
         # TODO: this will need updating if we want to do charged species
         if charge_scheme == 1:
             corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
@@ -302,8 +306,8 @@ class Network(object):
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
 
-        # TODO: predict electrostatic energies instead but still plot partial vs reference charges
-        # we care about electrostatic energy and partial charges
+        # calculate electrostatic energy and compare to reference
+
         return None
 
 
@@ -320,6 +324,7 @@ class Network(object):
         n_layers = ann_params["n_layers"]
         n_nodes = ann_params["n_nodes"]
         charge_scheme = ann_params["charge_scheme"]
+        norm_scheme = ann_params["norm_scheme"]
         if ann_params["n_nodes"] == "auto":
             n_nodes = [n_atoms * 30] * n_layers
 
@@ -363,7 +368,7 @@ class Network(object):
             ([coords_layer, unscale_qFE_layer])
 
         # calculate the unscaled energy
-        energy = E(prescale, name='energy')(E_layer)
+        energy = E(prescale, norm_scheme, name='energy')(E_layer)
 
         # obtain the forces by taking the gradient of the energy
         force = F(n_atoms, n_pairs, name='force')([energy, coords_layer])
@@ -371,22 +376,34 @@ class Network(object):
         # prediction of uncorrected partial charges
         if charge_scheme == 1:
             corr = False
+            # predict uncorrected partial charges
             charge = Q(n_atoms, corr, name='charge')(output_layer2)
+            elec = charge
         # prediction of corrected partial charges
         elif charge_scheme == 2:
             corr = True
+            # predict uncorrected partial charges
             charge = Q(n_atoms, corr, name='charge')(output_layer2)
-        # prediction of decomposed and recomposed charge pairs
+            # correct partial charges here
+        # prediction of electrostatic energy
         elif charge_scheme == 3:
+            # predict uncorrected partial charges
             charge = Q(n_atoms, name='charge')(output_layer2)
-
-        # calculate electrostatic energy... this will go in the loss function
-        # elec_energy = ....
+            # correct partial charges
+            # calculate unscaled electrostatic energy from corrected partial charges
+            # scale electrostatic energy
+        # prediction of decomposed and recomposed charge pairs - Neil's Matlab stuff
+        elif charge_scheme == 4:
+            # predict uncorrected partial charges
+            charge = Q(n_atoms, name='charge')(output_layer2)
+            # correct charges
+            # calculate electrostatic energy - this goes in loss function
+            elec = charge
 
         # define the input layers and output layers used in the loss function
         model = Model(
                 inputs=[coords_layer, nuclear_charge_layer],
-                outputs=[force, energy, charge],
+                outputs=[force, energy, elec],
                 )
 
         return model

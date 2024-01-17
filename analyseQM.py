@@ -102,13 +102,21 @@ def rmsd_dist(mol, set_size):
             rmsd_dist[s] = np.sqrt(sum_rmsd_dist / n_atoms / n_atoms)
     return rmsd_dist
 
-def prescale_e(mol, energies, forces):
-    # TODO: there's no reason to scale the energies in this way any more.
-    min_e, max_e = np.min(energies), np.max(energies)
-    min_f, max_f = np.min(forces), np.max(forces)
-    min_f = np.min(np.abs(forces))
-    prescale = [min_e, max_e, min_f, max_f, 0, 0]
-    mol.energies = ((max_f-min_f)*(mol.orig_energies-min_e)/(max_e-min_e)+min_f)
+def prescale_e(mol, energies, forces, norm_scheme):
+    if norm_scheme == "z-score":
+        mu = np.mean(energies)
+        sigma = np.std(energies)
+        prescale =[mu, sigma, 0, 0, 0, 0]
+        mol.energies = (mol.orig_energies - mu) / sigma
+    elif norm_scheme == "force":
+        min_e, max_e = np.min(energies), np.max(energies)
+        min_f, max_f = np.min(forces), np.max(forces)
+        min_f = np.min(np.abs(forces))
+        prescale = [min_e, max_e, min_f, max_f, 0, 0]
+        mol.energies = ((max_f-min_f)*(mol.orig_energies-min_e)/(max_e-min_e)+min_f)
+    elif norm_scheme == "none":
+        prescale = [0, 0, 0, 0, 0, 0]
+        mol.energies = mol.orig_energies
     return prescale
 
 def prescale_eij(mol, prescale):
@@ -155,7 +163,6 @@ def get_eij(mol, set_size, output_dir):
 
                 # calculate interatomic nuclear repulsion force (input features)
                 mol.mat_NRF[s, _N] = get_NRF(zi, zj, r_ij)
-                # TODO: replace above with single line
                 bias[s, _N] = 1 / r_ij
 
         # calculation normalisation factor, N
@@ -191,4 +198,21 @@ def get_NRF(zA, zB, r):
     return _NRF
 
 
+def z_score(x, prescale):
+    """
+    computes  X, zcore normalized by column
+
+    Args:
+      X (ndarray (m,n))     : input data, m examples, n features
+
+    Returns:
+      X_norm (ndarray (m,n)): input normalized by column
+      mu (ndarray (n,))     : mean of each feature
+      sigma (ndarray (n,))  : standard deviation of each feature
+    """
+    # normalise energies
+    mu = np.mean(x, axis=0)
+    sigma = np.std(x, axis=0)
+    x_norm = (x - mu) / sigma
+    return x_norm, mu, sigma
 

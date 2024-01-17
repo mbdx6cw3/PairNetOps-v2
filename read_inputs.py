@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import numpy as np
-import output
 
 class Molecule(object):
     '''
@@ -142,6 +141,12 @@ def ann(input_file):
     except ValueError:
         print("***ERROR: Invalid batch size")
         exit()
+    params["norm_scheme"] = str(params["norm_scheme"])
+    accepted_strings = ["z-score", "force", "none"]
+    if params["norm_scheme"] not in accepted_strings:
+        print("***ERROR: normalisation scheme not accepted")
+        exit()
+
     return params
 
 
@@ -211,6 +216,7 @@ def md(input_file):
     except ValueError:
         print("***ERROR: Invalid printing frequency")
         exit()
+    # TODO: extra thing here to remove white space so that these are definitely read as booleans
     if(params["minim"]) == "False":
         params["minim"] = False
     elif(params["minim"]) == "True":
