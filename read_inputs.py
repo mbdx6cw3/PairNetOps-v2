@@ -217,13 +217,13 @@ def md(input_file):
         print("***ERROR: Invalid printing frequency")
         exit()
     # TODO: extra thing here to remove white space so that these are definitely read as booleans
-    if(params["minim"]) == "False":
+    if params["minim"].strip() == "False":
         params["minim"] = False
-    elif(params["minim"]) == "True":
+    elif params["minim"].strip() == "True":
         params["minim"] = True
-    if(params["bias"]) == "False":
+    if params["bias"].strip() == "False":
         params["bias"] = False
-    elif(params["bias"]) == "True":
+    elif params["bias"].strip() == "True":
         params["bias"] = True
 
     return params
