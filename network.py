@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
-import time, output, os
+import time, write_output, os
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model
@@ -177,6 +177,23 @@ class Network(object):
     def __init__(self, molecule):
         self.model = None
 
+    def load(self, mol, ann_params, input_dir):
+        prescale = np.loadtxt(f"./{input_dir}/prescale.txt",
+            dtype=np.float64).reshape(-1)
+        norm_scheme = ann_params["norm_scheme"]
+        if norm_scheme == "force":
+            mol.energies = ((prescale[3] - prescale[2]) * (mol.orig_energies
+                - prescale[0]) / (prescale[1] - prescale[0]) + prescale[2])
+        elif norm_scheme == "z-score":
+            mol.energies = (mol.orig_energies - prescale[0]) / prescale[1]
+        elif norm_scheme == "none":
+            mol.energies = mol.orig_energies
+        model = Network.build(self, mol, ann_params, prescale)
+        model.summary()
+        model.load_weights(f"./{input_dir}/best_ever_model").expect_partial()
+        return model
+
+
     def train(self, model, mol, ann_params, output_dir1, output_dir2):
 
         # ensures that tensorflow does not use more cores than requested
@@ -246,7 +263,7 @@ class Network(object):
             result.history['val_f_loss'], result.history['val_e_loss'],
             result.history['val_q_loss'], result.history['val_loss'] )),
             delimiter=" ", fmt="%.6f")
-        output.twolineplot(np.arange(epochs),np.arange(epochs),model_loss,
+        write_output.twolineplot(np.arange(epochs),np.arange(epochs),model_loss,
             model_val_loss, "training loss", "validation loss", "linear",
             "epoch", "loss", "loss_curve", output_dir1)
 
@@ -270,7 +287,7 @@ class Network(object):
 
         # force test output
         test_output_F = np.take(mol.forces, mol.test, axis=0)
-        mean_ae, max_ae, L1 = Network.summary(test_output_F.flatten(),
+        mean_ae, max_ae, L1 = Network.summary(self, test_output_F.flatten(),
             test_prediction[0].flatten(), output_dir, "f")
         print(f"F (kcal mol^-1 A^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
         np.savetxt(f"./{output_dir}/f_test.dat", np.column_stack((
@@ -279,7 +296,7 @@ class Network(object):
 
         # energy test output
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)
-        mean_ae, max_ae, L1 = Network.summary(test_output_E.flatten(),
+        mean_ae, max_ae, L1 = Network.summary(self, test_output_E.flatten(),
             test_prediction[1].flatten(), output_dir, "e")
         print(f"E (kcal mol^-1)     : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
         np.savetxt(f"./{output_dir}/e_test.dat", np.column_stack((
@@ -299,7 +316,7 @@ class Network(object):
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)
-        mean_ae, max_ae, L1 = Network.summary(test_output_q.flatten(),
+        mean_ae, max_ae, L1 = Network.summary(self, test_output_q.flatten(),
             corr_prediction.flatten(), output_dir, "q")
         print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
@@ -311,12 +328,13 @@ class Network(object):
         return None
 
 
-    def build(self, n_atoms, ann_params, prescale):
+    def build(self, mol, ann_params, prescale):
         '''Input coordinates and z_types into model to get NRFS which then
         are used to predict decompFE, which are then recomposed to give
         Cart Fs and molecular E, both of which could be used in the loss
         function, could weight the E or Fs as required.
         '''
+        n_atoms = mol.n_atom
 
         # set variables
         n_pairs = int(n_atoms * (n_atoms - 1) / 2)
@@ -409,7 +427,7 @@ class Network(object):
         return model
 
 
-    def summary(all_actual, all_prediction, output_dir, label):
+    def summary(self, all_actual, all_prediction, output_dir, label):
         '''Get total errors for array values.'''
         _N = np.size(all_actual)
         mean_ae = 0
@@ -420,7 +438,7 @@ class Network(object):
             if abs(diff) > max_ae:
                 max_ae = abs(diff)
         mean_ae = mean_ae / _N
-        L1 = output.scurve(all_actual.flatten(), all_prediction.flatten(),
+        L1 = write_output.scurve(all_actual.flatten(), all_prediction.flatten(),
                       output_dir, f"{label}_scurve")
         return mean_ae, max_ae, L1
 

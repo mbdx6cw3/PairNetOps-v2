@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
+from itertools import islice
 
 class Molecule(object):
     '''
@@ -27,28 +28,79 @@ class Molecule(object):
             self.energies = np.vstack(other.energies)
 
 class Dataset():
-    def __init__(self, mol, input_dir, set_size, read_charge):
-        file_list = ["./nuclear_charges.txt", f"./{input_dir}/coords.txt",
-            f"./{input_dir}/forces.txt", f"./{input_dir}/energies.txt",
-            f"./{input_dir}/charges.txt"]
-        element = {1: "H", 6: "C", 7: "N", 8: "O"}
-        self.atoms = []
-        self.atom_names = []
-        input_ = open(file_list[0], 'r')
-        for atom in input_:
-            self.atoms.append(int(atom))
-            self.atom_names.append(element[self.atoms[-1]])
-        self.n_atom = len(self.atoms)
-        self.charges = np.zeros((set_size, self.n_atom))
-        self.coords = np.reshape(np.loadtxt(file_list[1], max_rows=set_size
-            * self.n_atom), (set_size, self.n_atom, 3))
-        self.energies = np.reshape(np.loadtxt(file_list[3], max_rows=set_size),
-            (set_size))
-        self.forces = np.reshape(np.loadtxt(file_list[2], max_rows=set_size
-            * self.n_atom), (set_size, self.n_atom, 3))
-        if read_charge:
-            self.charges = np.reshape(np.loadtxt(file_list[4], max_rows=set_size
-                * self.n_atom), (set_size, self.n_atom))
+    def __init__(self, mol, set_size, set_init, set_space, input_dir, format):
+
+        if format == "txt" or format == "gau":
+            element = {1: "H", 6: "C", 7: "N", 8: "O"}
+            self.atoms = []
+            self.atom_names = []
+            input_ = open(f"./nuclear_charges.txt", "r")
+            for atom in input_:
+                self.atoms.append(int(atom))
+                self.atom_names.append(element[self.atoms[-1]])
+            self.n_atom = len(self.atoms)
+
+        if format == "txt":
+            if np.loadtxt(f"./{input_dir}/coords.txt").shape[0] % self.n_atom != 0:
+                print("ERROR - mismatch between molecule size and dataset size.")
+                print("Check the nuclear_charges.txt file.")
+                exit()
+            self.coords = np.reshape(np.loadtxt(f"./{input_dir}/coords.txt",
+                max_rows=set_size * self.n_atom), (set_size, self.n_atom, 3))
+            self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt",
+                max_rows=set_size), (set_size))
+            self.forces = np.reshape(np.loadtxt(f"./{input_dir}/forces.txt",
+                max_rows=set_size * self.n_atom), (set_size, self.n_atom, 3))
+            self.charges = np.reshape(np.loadtxt(f"./{input_dir}/charges.txt",
+                max_rows=set_size * self.n_atom), (set_size, self.n_atom))
+
+        elif format == "gau":
+            self.coords, self.energies, self.forces, self.charges, error = \
+                gau(set_size, set_space, input_dir, self.n_atom)
+            if error:
+                print("WARNING - some Gaussian jobs did not terminate correctly.")
+                exit()
+
+        elif format == "ext":
+            try:
+                inp_vsn = input("""Enter the dataset version:
+                    [1] - original MD17
+                    [2] - revised MD17
+                    > """)
+            except ValueError:
+                print("Invalid Value")
+                exit()
+            if int(inp_vsn) == 1:
+                source = "md17"
+            elif int(inp_vsn) == 2:
+                source = "rmd17"
+            else:
+                print("Invalid Value")
+                exit()
+
+            molecule = int(input("""Enter the molecule name:
+                (aspirin, azobenzene, benzene, ethanol, malonaldehyde, 
+                 naphthalene, paracetamol, salicylic, toluene, uracial)
+                 > """))
+            if molecule.strip() == "azobenzene" or molecule == "paracetamol":
+                print("Error - molecule not in MD17 dataset")
+                exit()
+
+            dataset = np.load(f"{input_dir}/{source}/{source}_{molecule}.npz")
+
+            # slight differences in formatting of md17/rmd17
+            if source == "md17":
+                self.coords = dataset["R"]
+                #self.energies =
+                #self.forces =
+            elif source == "rmd17":
+                self.atoms = dataset["nuclear_charges"]
+                self.n_atom = len(self.atoms)
+                self.coords = dataset["coords"]
+                self.energies = dataset["energies"]
+                self.forces = dataset["forces"]
+            self.charges = 0.0
+
         mol.get_ZCFE(self)  # populate molecule class
 
         return None
@@ -216,11 +268,12 @@ def md(input_file):
     except ValueError:
         print("***ERROR: Invalid printing frequency")
         exit()
-    # TODO: extra thing here to remove white space so that these are definitely read as booleans
+
     if params["minim"].strip() == "False":
         params["minim"] = False
     elif params["minim"].strip() == "True":
         params["minim"] = True
+
     if params["bias"].strip() == "False":
         params["bias"] = False
     elif params["bias"].strip() == "True":
@@ -228,3 +281,76 @@ def md(input_file):
 
     return params
 
+
+def gau(set_size, set_space, input_dir, n_atom):
+    energies = np.empty(shape=[set_size])
+    coords = np.empty(shape=[set_size, n_atom, 3])
+    forces = np.empty(shape=[set_size, n_atom, 3])
+    charges = np.empty(shape=[set_size, n_atom])
+    normal_term = []
+
+    # loop over all Gaussian files, extract energies, forces and coordinates
+    for i_file in range(set_size):
+        if ((i_file) % set_space) == 0:
+            normal_term[i_file] = False
+            qm_file = open(f"./{input_dir}/mol_{i_file+1}.out", "r")
+            for line in qm_file:
+                # extract atomic coordinates
+                if "Input orientation:" in line:
+                    coord_block = list(islice(qm_file, 4+n_atom))[-n_atom:]
+                # extract energies, convert to kcal/mol
+                if "SCF Done:" in line:
+                    energies[i_file] = (float(line.split()[4]))*627.509608
+                # extract forces
+                if "Axes restored to original set" in line:
+                    force_block = list(islice(qm_file, 4+n_atom))[-n_atom:]
+                # extract charges
+                if "ESP charges:" in line:
+                    charge_block = list(islice(qm_file, 1+n_atom))[-n_atom:]
+                # assess termination state
+                if "Normal termination of Gaussian 09" in line:
+                    normal_term[i_file] = True
+                    break
+
+            # read atomic coordinates
+            for i_atom, atom in enumerate(coord_block):
+                coords[i_file, i_atom] = atom.strip('\n').split()[-3:]
+
+            # read atomic forces, convert to kcal/mol/A
+            for i_atom, atom in enumerate(force_block):
+                forces[i_file, i_atom] = atom.strip('\n').split()[-3:] * 627.509608 / 0.529177
+
+            # read partial charges
+            for i_atom, atom, in enumerate(charge_block):
+                charges[i_file, i_atom] = atom.strip('\n').split()[-1]
+
+            for i_file in range(set_size):
+                if not normal_term[i_file]:
+                    error = True
+
+    return coords, energies, forces, charges, error
+
+
+def perm(mol):
+
+    with open(f"./permutations.txt", "r") as perm_file:
+        max_atm = 10
+        max_symm_atm = 10
+        n_perm_grp = int(perm_file.readline())
+        n_symm = np.zeros(shape=[n_perm_grp], dtype=int)
+        n_symm_atm = np.zeros(shape=[n_perm_grp], dtype=int)
+        perm_atm = np.zeros(shape=[n_perm_grp, max_symm_atm, max_atm], dtype=int)
+        for i_perm in range(0,n_perm_grp):
+            n_symm[i_perm] = int(perm_file.readline())
+            for i_symm in range(0,n_symm[i_perm]):
+                indices = [eval(i) for i in perm_file.readline().split()]
+                if i_symm == 0:
+                    n_symm_atm[i_perm] = len(indices)
+                for i_atm in range(n_symm_atm[i_perm]):
+                    perm_atm[i_perm][i_symm][i_atm] = indices[i_atm]
+                    if perm_atm[i_perm][i_symm][i_atm] > mol.n_atom:
+                        print("Error - permutation atom out of range")
+                        exit()
+        perm_file.close()
+
+    return n_perm_grp, perm_atm, n_symm, n_symm_atm

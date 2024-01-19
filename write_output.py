@@ -40,22 +40,18 @@ def scatterplot(x, y, type, x_label, y_label, title, output_dir):
     plt.savefig(f"./{output_dir}/{title}.png")
     return None
 
-def gro(n_atoms, vectors, time, coords, atom_names, output_dir, file_name):
-    '''
-    For a given set of structure 3D coords and the atom
-    associated numbers, output xyz format file called filename.
-    Either write a new file (open_type='w') or append to
-    an existing file (open_type='a') and chose the entry number
-    with i=number
-    '''
+def gro(n_atom, vectors, time, coords, atom_names, output_dir, file_name):
+
+    #time = 0.0
+    #vectors = [2.5, 2.5, 2.5]
     if time == 0.0:
         open_type = "w"
     else:
         open_type = "a"
     gro_file = open(f"{output_dir}/{file_name}.gro", open_type)
     gro_file.write(f"output t={time} ps\n")
-    gro_file.write(f"{n_atoms}\n")
-    for atom in range(n_atoms):
+    gro_file.write(f"{n_atom}\n")
+    for atom in range(n_atom):
         x = coords[atom][0]
         y = coords[atom][1]
         z = coords[atom][2]
@@ -64,6 +60,8 @@ def gro(n_atoms, vectors, time, coords, atom_names, output_dir, file_name):
     gro_file.write("{:10.5f} {:10.5f} {:10.5f}\n".
                    format(vectors[0],vectors[1],vectors[2]))
     gro_file.close()
+
+    return None
 
 
 def write_pdb(coords, resname, resid, atoms, atom_names, filename, open_type):
@@ -126,7 +124,7 @@ def heatmap2D(x, y, z, z_max, output_dir, file, cmap, fe_map):
     return None
 
 
-def write_gau(mol, init, set_size, output_dir, opt_prop):
+def gau(mol, coords, output_dir, opt_prop, CV_list):
 
     # read input text section
     gaussian_spe = open(f"./gaussian_spe.txt", "r")
@@ -140,8 +138,9 @@ def write_gau(mol, init, set_size, output_dir, opt_prop):
     else:
         opt_prop = 10000000
 
+    CV_list = [i + 1 for i in CV_list]
     # create QM input files
-    for item in range(init, set_size):
+    for item in range(len(mol.coords)):
         if item == 0:
             text = text_spe
         else:
@@ -149,20 +148,47 @@ def write_gau(mol, init, set_size, output_dir, opt_prop):
                 text = text_opt
             else:
                 text = text_spe
-        qm_file = open(f"./{output_dir}/mol_{item+1-init}.gjf", "w")
-        new_text = text.replace("index", f"{item+1-init}")
+        qm_file = open(f"./{output_dir}/mol_{item+1}.gjf", "w")
+        new_text = text.replace("index", f"{item+1}")
         print(new_text, file=qm_file)
         for atom in range(mol.n_atom):
             print(f"{mol.atom_names[atom]} "
-                  f"{mol.coords[item,atom,0]:.8f} " 
-                  f"{mol.coords[item,atom,1]:.8f} "
-                  f"{mol.coords[item,atom,2]:.8f}",
-                  file=qm_file) # convert to Angstroms
-        ### TODO: remove hard-coding!
+                  f"{coords[item,atom,0]:.8f} " 
+                  f"{coords[item,atom,1]:.8f} "
+                  f"{coords[item,atom,2]:.8f}",
+                  file=qm_file)
         if (item % opt_prop) == 0 and item != 0:
             print(file=qm_file)
-            print("5 4 2 3 B", file=qm_file)
-            print("5 4 2 3 F", file=qm_file)
+            print(*CV_list[:], "B", file=qm_file)
+            print(*CV_list[:], "F", file=qm_file)
+            write_pdb(coords[item][:][:], "sali", 1, mol.atoms,
+                mol.atom_names,f"./{output_dir}/mol_{item + 1}.pdb", "w")
         print(file=qm_file)
         qm_file.close()
+    return None
+
+
+def dataset(n_atom, energies, coords, forces, charges, output_dir):
+
+    # write .txt files
+    coord_file = open(f"./{output_dir}/coords.txt", "w")
+    energy_file = open(f"./{output_dir}/energies.txt", "w")
+    force_file = open(f"./{output_dir}/forces.txt", "w")
+    error_file = open(f"./{output_dir}/errors.txt", "w")
+    charge_file = open(f"./{output_dir}/charges.txt", "w")
+
+    for i_file in range(len(energies)):
+
+        # save coordinates and forces (converting to kcal/mol/A)
+        for i_atom in range(n_atom):
+            print(*coords[i_file, i_atom], file=coord_file)
+            print(*forces[i_file, i_atom], file=force_file)
+            print(charges[i_file, i_atom], file=charge_file)
+
+        coord_file.close()
+        energy_file.close()
+        force_file.close()
+        charge_file.close()
+        error_file.close()
+
     return None
