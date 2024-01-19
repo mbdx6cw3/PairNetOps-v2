@@ -3,7 +3,7 @@
 activations  = silu
 
 # number of epochs
-epochs       = 500
+epochs       = 1000
 
 # number of layers
 n_layers     = 3
@@ -12,16 +12,19 @@ n_layers     = 3
 n_nodes      = 360, 360, 360
 
 # size of train, validation and test sets
-n_data       = 800, 100, 100
+n_data       = 1000, 100, 100
 
 # define custom loss function weights (forces, energy, charges)
-loss_weights = 0.0, 1.0, 0.0
+loss_weights = 0.95, 0.05, 0.00
 
-# scheme for calculating charges (1, 2, 3)
+# charge scheme (0-5)
 charge_scheme = 1
 
+# normalisation scheme ("z-score", "force" or "none")
+norm_scheme = z-score
+
 # batch size
-batch_size   = 32
+batch_size = 32
 
 # set learning rate parameters
 init_lr      = 5e-4

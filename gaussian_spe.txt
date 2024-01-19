@@ -1,6 +1,6 @@
 %chk=./gau_temp_index/mol_chk.chk
 %mem=3500MB
-#p pop=mk b3lyp/6-31g* empiricaldispersion=gd3 int(ultrafine) force
+#p pop=mk geom=nocrowd b3lyp/6-31g* empiricaldispersion=gd3 int(ultrafine) force
 
 amphetamine
 
