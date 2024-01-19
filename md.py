@@ -188,8 +188,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
 
-            # predict forces
-            # predict_on_batch must faster than predict when only single structure
+            # predict forces - predict_on_batch faster with only single structure
             prediction = model.predict_on_batch([np.reshape(coords
                 [:n_atoms]/angstrom, (1, -1, 3)), np.reshape(atoms,(1, -1))])
             # convert to OpenMM internal units
