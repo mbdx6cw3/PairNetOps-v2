@@ -110,7 +110,7 @@ def ann(input_file):
     try:
         param_file = open(input_file, "r")
     except FileNotFoundError:
-        print("***ERROR: no input file in the current working directory")
+        print("ERROR - no input file in the current working directory")
         exit()
     params = {}
     for line in param_file:

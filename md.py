@@ -8,9 +8,6 @@ import write_output, read_input, os, shutil
 from openmmml import MLPotential
 from network import Network
 import tensorflow as tf
-from datetime import datetime
-
-#TODO: can unused modules be removed?
 
 def setup(force_field, plat):
 
@@ -21,7 +18,7 @@ def setup(force_field, plat):
         exit()
     md_params = read_input.md(f"{input_dir}/md_params.txt")
 
-    output_dir = "md_output"
+    output_dir = "md_data"
     isExist = os.path.exists(output_dir)
     if isExist:
         shutil.rmtree(output_dir)
@@ -47,13 +44,9 @@ def setup(force_field, plat):
         system = potential.createSystem(top.topology)
     else:
         # for rigid water to be found the water residue name must be "HOH"
-        system = top.createSystem(nonbondedMethod=PME,
-                                  nonbondedCutoff=1*nanometer,
-                                  ewaldErrorTolerance=0.0005,
-                                  constraints=None,
-                                  removeCMMotion=True,
-                                  rigidWater=True,
-                                  switchDistance=None)
+        system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer)
+            #ewaldErrorTolerance=0.0005, constraints=None, removeCMMotion=True,
+            #rigidWater=True, switchDistance=None)
 
     #print(system.getNumConstraints())
 
@@ -65,7 +58,7 @@ def setup(force_field, plat):
 
     # for MLP define custom external force and set initial forces to zero
     force = 0
-    if force_field == "pairfenet":
+    if force_field == "pair_net":
         force = CustomExternalForce("-fx*x-fy*y-fz*z")
         system.addForce(force)
         force.addPerParticleParameter("fx")
@@ -81,6 +74,8 @@ def setup(force_field, plat):
         if thermostat == "nose_hoover":
             integrator = integrators.NoseHooverChainVelocityVerletIntegrator\
                 (system, temp*kelvin, coll_freq / picosecond, ts*picoseconds, 10, 5, 5)
+            if force_field == "pair_net":
+                print("WARNING - are you sure you want to use this combination of thermostat and potential?")
         elif thermostat == "langevin":
             integrator = LangevinMiddleIntegrator(temp*kelvin,
                 coll_freq / picosecond, ts*picoseconds)
@@ -107,7 +102,7 @@ def setup(force_field, plat):
     #nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
     #for i in range(system.getNumParticles()):
     #    charge, sigma, epsilon = nb.getParticleParameters(i)
-    #    print(charge,sigma,epsilon)
+     #   print(charge,sigma,epsilon)
     #print(nb.getEwaldErrorTolerance())
     #print(nb.getNonbondedMethod())
     #[alpha_ewald, nx, ny, nz] = nb.getPMEParameters()
@@ -130,18 +125,14 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
     n_atoms = len(gro.getPositions())
     vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
 
-    if force_field == "pairfenet":
-        input_dir = "trained_model"
-        isExist = os.path.exists(input_dir)
-        if not isExist:
-            print("Error - previously trained model could not be located.")
-            exit()
+    if force_field == "pair_net":
         print("Loading a trained model...")
-        ann_params = read_input.ann(f"./{input_dir}/ann_params.txt")
-        atoms = np.loadtxt(f"./{input_dir}/atoms.txt", dtype=np.float32).reshape(-1)
         mol = read_input.Molecule()
         network = Network(mol)
-        model= network.load(mol, ann_params, input_dir)
+        ann_params = read_input.ann("trained_model/ann_params.txt")
+        atoms = np.loadtxt("trained_model/nuclear_charges.txt", dtype=np.float32).reshape(-1)
+        mol.n_atom = n_atoms
+        model = network.load(mol, ann_params)
 
     if force_field == "empirical":
         nonbonded = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
@@ -182,10 +173,8 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
         if force_field == "ani":
             charges = np.zeros(n_atoms)
 
-        if force_field == "pairnet":
-
-            # clears session to avoid running out of memory
-            if (i % 1000) == 0:
+        if force_field == "pair_net":
+            if (i % 1000) == 0: # clears session to avoid running out of memory
                 tf.keras.backend.clear_session()
 
             # predict forces - predict_on_batch faster with only single structure
@@ -201,7 +190,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
 
             # TODO: dynamically reassign charges to ML atoms
             # set charges to zero for now
-            charges = np.zeros(n_atoms)
+            charges = prediction[2].T
 
         # advance trajectory one timestep
         simulation.step(1)
@@ -230,11 +219,11 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
             else:
                 PE = state.getPotentialEnergy() / kilocalories_per_mole
 
-        np.savetxt(f1, coords[:n_atoms])
-        np.savetxt(f2, forces[:n_atoms])
-        np.savetxt(f3, velocities[:n_atoms])
-        f4.write(f"{PE}\n")
-        np.savetxt(f5, charges[:n_atoms])
+            np.savetxt(f1, coords[:n_atoms])
+            np.savetxt(f2, forces[:n_atoms])
+            np.savetxt(f3, velocities[:n_atoms])
+            f4.write(f"{PE}\n")
+            np.savetxt(f5, charges[:n_atoms])
 
         #TODO: providing PBCs are actually applied need to wrap coords here
         #TODO: do we need to do this for coords above too?

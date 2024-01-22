@@ -177,17 +177,13 @@ class Network(object):
     def __init__(self, molecule):
         self.model = None
 
-    def load(self, mol, ann_params, input_dir):
-        prescale = np.loadtxt(f"./{input_dir}/prescale.txt",
-            dtype=np.float64).reshape(-1)
-        norm_scheme = ann_params["norm_scheme"]
-        if norm_scheme == "force":
-            mol.energies = ((prescale[3] - prescale[2]) * (mol.orig_energies
-                - prescale[0]) / (prescale[1] - prescale[0]) + prescale[2])
-        elif norm_scheme == "z-score":
-            mol.energies = (mol.orig_energies - prescale[0]) / prescale[1]
-        elif norm_scheme == "none":
-            mol.energies = mol.orig_energies
+    def load(self, mol, ann_params):
+        input_dir = "trained_model"
+        isExist = os.path.exists(input_dir)
+        if not isExist:
+            print("Error - previously trained model could not be located.")
+            exit()
+        prescale = np.loadtxt(f"./{input_dir}/prescale.txt", dtype=np.float64).reshape(-1)
         model = Network.build(self, mol, ann_params, prescale)
         model.summary()
         model.load_weights(f"./{input_dir}/best_ever_model").expect_partial()

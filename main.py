@@ -36,25 +36,31 @@ def main():
 
         startTime = datetime.now()
         option_flag = int(input("""Run a Molecular Dynamics Simulation.
-            [1] - Use Empirical Potential.
-            [2] - Use PairNet Potential.
+            [1] - Use an Empirical Potential.
+            [2] - Use a PairNet Potential.
             [3] - Use ANI-2x.
             > """))
 
         if option_flag == 1:
-            print("Use empirical potential.")
+            print("Use an Empirical Potential.")
             potential = "empirical"
         elif option_flag == 2:
             print("Use PairNet potential.")
-            potential = "pairnet"
+            potential = "pair_net"
         elif option_flag == 3:
             print("Use ANI.")
             potential = "ani"
+        print()
 
         plat = str(input("""GPU or CPU?
             > """))
         if plat == "GPU":
             plat = "OpenCL"
+            print("Using a GPU node")
+        else:
+            print("Using a CPU node")
+        print()
+        print("Running MD Simulation...")
 
         # setup simulation
         simulation, system, output_dir, md_params, gro, force = md.setup(potential, plat)
@@ -81,22 +87,21 @@ def main():
         if not isExist:
             os.makedirs(output_dir1)
 
-        # locate dataset
-        input_dir = "ml_data"
-        isExist = os.path.exists(input_dir)
-        if not isExist:
-            os.makedirs(input_dir)
-
         # initiate molecule and network classes
         mol = read_input.Molecule()
         network = Network(mol)
         ann_params = read_input.ann("ann_params.txt")
-        n_data = ann_params["n_data"]
-        norm_scheme = ann_params["norm_scheme"]
 
         # define training and test sets.
+        n_data = ann_params["n_data"]
         n_train, n_val, n_test = n_data[0], n_data[1], n_data[2]
         size = n_train + n_val + n_test
+
+        # locate and read in dataset
+        input_dir = "ml_data"
+        isExist = os.path.exists(input_dir)
+        if not isExist:
+            os.makedirs(input_dir)
         read_input.Dataset(mol, size, 1, 1, input_dir, "txt")
         mol.orig_energies = np.copy(mol.energies)
 
@@ -119,15 +124,8 @@ def main():
 
         # load previously trained model
         if ann_load:
-
-            input_dir = "trained_model"
-            isExist = os.path.exists(input_dir)
-            if not isExist:
-                print("ERROR - previously trained model could not be located.")
-                exit()
-
             print("Loading a trained model...")
-            model = network.load(mol, ann_params, input_dir)
+            model = network.load(mol, ann_params)
 
         else:
             mol.trainval = [*range(0, n_train + n_val, 1)]
@@ -135,6 +133,7 @@ def main():
             trainval_energies = np.take(mol.energies, mol.trainval, axis=0)
             # TODO: pre-scaling for charges?!
             #trainval_charges = np.take(mol.charges, mol.trainval, axis=0)
+            norm_scheme = ann_params["norm_scheme"]
             prescale = analysis.prescale_e(mol, trainval_energies,
                 trainval_forces, norm_scheme)
 
@@ -168,9 +167,9 @@ def main():
             print("Saving model...")
             model.save_weights(f"./{output_dir2}/best_ever_model")
             np.savetxt(f"./{output_dir2}/nuclear_charges.txt",
-                       (np.array(mol.atoms)).reshape(-1, 1))
+                (np.array(mol.atoms)).reshape(-1, 1))
             np.savetxt(f"./{output_dir2}/prescale.txt",
-                       (np.array(prescale)).reshape(-1, 1))
+                (np.array(prescale)).reshape(-1, 1))
             print(datetime.now() - startTime)
 
         # test model
