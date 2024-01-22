@@ -139,7 +139,6 @@ def main():
 
         # train model
         if ann_train:
-            startTime = datetime.now()
 
             # open new directory to save newly trained model
             output_dir2 = "trained_model"
@@ -162,7 +161,9 @@ def main():
             mol.train = [*range(0, n_train, 1)]
             mol.val = [*range(n_train, n_train + n_val, 1)]
             print("Training model...")
+            startTime = datetime.now()
             network.train(model, mol, ann_params, output_dir1, output_dir2)
+            print(datetime.now() - startTime)
 
             print("Saving model...")
             model.save_weights(f"./{output_dir2}/best_ever_model")
@@ -170,7 +171,6 @@ def main():
                 (np.array(mol.atoms)).reshape(-1, 1))
             np.savetxt(f"./{output_dir2}/prescale.txt",
                 (np.array(prescale)).reshape(-1, 1))
-            print(datetime.now() - startTime)
 
         # test model
         if ann_test:
@@ -189,14 +189,15 @@ def main():
         if not isExist:
             os.makedirs(output_dir)
 
-        option_flag = int(input("""
+        option_flag = int(input("""What would you like to analyse?
         [1] - Analyse Forces and Energies.
         [2] - Assess Stability.
         [3] - Analyse Geometry.
         [4] - Analyse Charges.
         [5] - Compare Datasets.
-        [6] - Calculate 2D Free Energy Surface.
-        >""" ))
+        [6] - Calculate Multidimensional Free Energy Surface.
+        > """ ))
+        print()
 
         if option_flag < 6:
             while True:
@@ -204,6 +205,7 @@ def main():
                     size = int(input("Enter number of structures > "))
                     init = int(input("Enter the initial structure > "))
                     space = int(input("Enter spacing between structures > "))
+                    print()
                     break
                 except ValueError:
                     print("Invalid Value")
@@ -213,11 +215,12 @@ def main():
             [1] - QM Dataset.
             [2] - MD Dataset.
             [3] - External Dataset.
-            >"""))
+            > """))
+            print()
 
             if input_type == 1:
-                print("Loading MD dataset...")
-                input_dir = "md_data"
+                print("Loading QM dataset...")
+                input_dir = "ml_data"
                 isExist = os.path.exists(input_dir)
                 if not isExist:
                     print("Error - no input files detected")
@@ -226,8 +229,8 @@ def main():
                 read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
             elif input_type == 2:
-                print("Loading ML dataset...")
-                input_dir = "ml_data"
+                print("Loading MD dataset...")
+                input_dir = "md_data"
                 isExist = os.path.exists(input_dir)
                 if not isExist:
                     print("Error - no input files detected")
@@ -283,21 +286,24 @@ def main():
             [2] - Get root mean squared deviation of distance matrix.
             [3] - Get 1D probability distribution of geometric variable.
             [4] - Get 2D probability distribution of geometric variable.
-            >"""))
+            > """))
 
             if geom_flag == 1:
                 print("Get energy vs geometric variable.")
-                CV_list = analysis.getCVs()
+                CV_list = analysis.getCVs(1)
                 analysis.energy_CV(mol, CV_list[0], size, output_dir)
+
             elif geom_flag == 2:
                 print("Get root mean squared deviation of distance matrix.")
                 rmsd_dist = analysis.rmsd_dist(mol, size)
                 print(f"Distance matrix RMSD: {np.mean(rmsd_dist)} Angstrom")
+
             elif geom_flag == 3:
                 print("Get 1D probability distribution of geometric variable.")
                 n_bins = int(input("Enter the number of bins > "))
                 CV_list = analysis.getCVs()
                 analysis.pop1D(mol, n_bins, CV_list[0], output_dir, init, size)
+
             elif geom_flag == 4:
                 print("Get 2D probability distribution of geometric variable.")
                 n_bins = int(input("Enter the number of bins > "))
@@ -307,19 +313,28 @@ def main():
         elif option_flag == 4:
             print("Analyse Charges.")
             charge_option = int(input("""
-                [1] Calculate mean atomic partial charges.
-                [2] Calculate atomic partial charge probability distribution.
-                [3] Calculate partial charge as a function of geometric variable (not yet functional).
+                [1] Calculate mean partial charges.
+                [2] Calculate partial charge probability distribution.
+                [3] Calculate partial charge vs geometric variable.
                 > """))
+            print()
+
             if charge_option == 1:
+                print("Calculating mean partial charges...")
                 np.savetxt(f"./{output_dir}/mean_charges.dat", np.column_stack((
                     np.arange(mol.n_atom), mol.charges.mean(axis=0))),
                            fmt="%d %.6f", delimiter=" ")
+
             elif charge_option == 2:
-                atom_option = int(input("""Enter atom index > """))
-                analysis.charge_dist(mol, atom_option, size, output_dir)
+                atom = int(input("""Enter atom index > """))
+                print("Calculating partial charge probability distribution...")
+                analysis.charge_dist(mol, atom, size, output_dir)
+
             elif charge_option == 3:
-                print("hello")
+                atom = int(input("""Enter atom index > """))
+                print("Calculating partial charge vs geometric variable...")
+                CV_list = analysis.getCVs(1)
+                analysis.charge_CV(mol, atom, CV_list[0], size, output_dir)
 
         elif option_flag == 5:
             print("Compare Datasets.")

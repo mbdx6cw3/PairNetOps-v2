@@ -277,7 +277,7 @@ class Network(object):
         startTime = datetime.now()
         test_prediction = model.predict([test_coords, test_atoms])
         print(datetime.now()-startTime)
-        print(f"\nError summary over {len(mol.test)} test structures")
+        print(f"\nError summary using {len(mol.test)} test structures...")
         print(f"                       MeanAE  |   MaxAE  | L1 (%)")
         print(f"--------------------------------------------------")
 

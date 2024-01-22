@@ -33,17 +33,46 @@ def charge_dist(mol, index, set_size, output_dir):
     bin_width = bin[1] - bin[0]
     write_output.lineplot(bin, hist / bin_width / set_size, "linear",
                 "charge (e)", "probability", "charge_dist", output_dir)
-    np.savetxt(f"./{output_dir}/charge_dist.dat",
+    np.savetxt(f"./{output_dir}/charge_dist_{index}.dat",
         np.column_stack((bin, hist / bin_width / set_size)),
         delimiter = " ",fmt="%.6f")
     return None
 
 
-# charge_CV here.
+def charge_CV(mol, index, atom_indices, set_size, output_dir):
+    partial_charge = mol.charges[:,index]
+    CV_list = atom_indices
+    CV = np.empty(shape=[set_size])
+    for item in range(set_size):
+        p = np.zeros([len(CV_list), 3])
+        p[0:] = mol.coords[item][CV_list[:]]
+        if len(CV_list) == 2:
+            x_label = "$r_{ij} / \AA$"
+            CV[item] = distance(p)
+        elif len(CV_list) == 3:
+            x_label = "$\u03F4_{ijk}  (degrees)$"
+            CV[item] = angle(p)
+        elif len(CV_list) == 4:
+            x_label = "$\u03C6_{ijkl} (degrees)$"
+            CV[item] = dihedral(p)
+    write_output.scatterplot(CV, partial_charge, "linear", x_label,
+        "partial charge (e)", f"charge_geom_scatter_{index}", output_dir)
+    np.savetxt(f"./{output_dir}/charge_geom_scatter_{index}.dat",
+        np.column_stack((CV, partial_charge)), delimiter=" ", fmt="%.6f")
+
+    means, edges, counts = binned_statistic(CV, partial_charge,
+        statistic='min', bins=72, range=(-180.0, 180.0))
+    bin_width = edges[1] - edges[0]
+    bin_centers = edges[1:] - bin_width / 2
+    write_output.lineplot(bin_centers, means, "linear", x_label,
+        "mean partial charge (e)", f"charge_geom_{index}", output_dir)
+    np.savetxt(f"./{output_dir}/charge_geom_{index}.dat",
+        np.column_stack((bin_centers, means)), delimiter=" ", fmt="%.6f")
+    return None
 
 
 def energy_CV(mol, atom_indices, set_size, output_dir):
-    CV_list = np.array(atom_indices.split(), dtype=int)
+    CV_list = atom_indices
     CV = np.empty(shape=[set_size])
     for item in range(set_size):
         p = np.zeros([len(CV_list), 3])
@@ -58,27 +87,21 @@ def energy_CV(mol, atom_indices, set_size, output_dir):
             x_label = "$\u03C6_{ijkl} (degrees)$"
             CV[item] = dihedral(p)
     # plot distribution, scatter and save data
-    print("MEAN:", np.mean(CV))
     energy = mol.energies[:,0] - np.min(mol.energies[:,0])
-    hist, bin = np.histogram(CV, 50, (min(CV), max(CV)))
-    bin = bin[range(1, bin.shape[0])]
-    write_output.lineplot(bin, hist / set_size, "linear", x_label,
-        "relative probability", "geom_dist", output_dir)
-    np.savetxt(f"./{output_dir}/geom_dist.dat",
-        np.column_stack((bin, hist / set_size)), delimiter=" ", fmt="%.6f")
     write_output.scatterplot(CV, energy, "linear", x_label,
-        "QM energy (kcal/mol)", "energy_geom_scatter", output_dir)
+        "rel. energy (kcal/mol)", "energy_geom_scatter", output_dir)
     np.savetxt(f"./{output_dir}/energy_geom_scatter.dat",
         np.column_stack((CV, energy)), delimiter=" ", fmt="%.6f")
-    #means, edges, counts = binned_statistic(CV, energy, statistic='min',
-    #    bins=72, range=(-180.0, 180.0))
-    #bin_width = edges[1] - edges[0]
-    #bin_centers = edges[1:] - bin_width / 2
-    #output.lineplot(bin_centers, means, "linear", x_label,
-    #    "mean energy (kcal/mol)", "qm_energy_geom", output_dir)
-    #np.savetxt(f"./{output_dir}/qm_energy_geom.dat",
-    #    np.column_stack((bin_centers, means)), delimiter = " ",
-    #           fmt="%.6f")
+
+    means, edges, counts = binned_statistic(CV, energy, statistic='min',
+        bins=72, range=(-180.0, 180.0))
+    bin_width = edges[1] - edges[0]
+    bin_centers = edges[1:] - bin_width / 2
+    write_output.lineplot(bin_centers, means, "linear", x_label,
+        "rel. mean energy (kcal/mol)", "energy_geom", output_dir)
+    np.savetxt(f"./{output_dir}/energy_geom.dat",
+        np.column_stack((bin_centers, means)), delimiter = " ",
+               fmt="%.6f")
     return None
 
 def rmsd_dist(mol, set_size):
@@ -279,8 +302,8 @@ def pop1D(mol1, n_bins, CV_list, output_dir, init, set_size):
     hist, bin = np.histogram(dih, n_bins, (-180, 180))
     bin = bin[range(1, bin.shape[0])]
     write_output.lineplot(bin, hist / (set_size - init), "linear", "pop_1d",
-    "probability", "pop_1d", output_dir)
-    np.savetxt(f"./{output_dir}/pop_1d.dat", np.column_stack((bin,
+    "probability", "geom_dist", output_dir)
+    np.savetxt(f"./{output_dir}/geom_dist.dat", np.column_stack((bin,
         hist / (set_size - init))), delimiter=" ", fmt="%.6f")
 
 
@@ -316,15 +339,15 @@ def energy_corr(baseline, values, output_dir):
         "Rel. MD energy (kcal/mol)", "energy_error_scatter", output_dir)
     return None
 
-def getCVs():
-    while True:
-        try:
-            n_CV = int(input("Enter the number of CVs > "))
-            break
-        except ValueError:
-            print("Invalid Value")
-        except n_CV > 2:
-            print("Error - number of CVs can only be 1 or 2")
+def getCVs(n_CV):
+    #while True:
+     #   try:
+     #       n_CV = int(input("Enter the number of CVs > "))
+       #     break
+      #  except ValueError:
+       #     print("Invalid Value")
+       # except n_CV > 2:
+        #    print("Error - number of CVs can only be 1 or 2")
 
     CV_list = np.empty(shape=[n_CV, 4], dtype=int)
     for i_CV in range(n_CV):

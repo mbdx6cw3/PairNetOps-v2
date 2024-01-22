@@ -45,10 +45,12 @@ class Dataset():
                 print("ERROR - mismatch between molecule size and dataset size.")
                 print("Check the nuclear_charges.txt file.")
                 exit()
+            self.energies = np.loadtxt(f"./{input_dir}/energies.txt", max_rows=set_size)
+            if len(self.energies) < set_size:
+                print("ERROR - requested set size exceeds the dataset size")
+                exit()
             self.coords = np.reshape(np.loadtxt(f"./{input_dir}/coords.txt",
                 max_rows=set_size * self.n_atom), (set_size, self.n_atom, 3))
-            self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt",
-                max_rows=set_size), (set_size))
             self.forces = np.reshape(np.loadtxt(f"./{input_dir}/forces.txt",
                 max_rows=set_size * self.n_atom), (set_size, self.n_atom, 3))
             self.charges = np.reshape(np.loadtxt(f"./{input_dir}/charges.txt",

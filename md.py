@@ -44,17 +44,11 @@ def setup(force_field, plat):
         system = potential.createSystem(top.topology)
     else:
         # for rigid water to be found the water residue name must be "HOH"
-        system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer)
-            #ewaldErrorTolerance=0.0005, constraints=None, removeCMMotion=True,
-            #rigidWater=True, switchDistance=None)
+        system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer,
+            ewaldErrorTolerance=0.0005, constraints=None, removeCMMotion=True,
+            rigidWater=True, switchDistance=None)
 
     #print(system.getNumConstraints())
-
-    # define non-bonded force which contains empirical potential parameters
-    #nb_force = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-    #for i in range(system.getNumParticles())
-    #    print(nb_force.getParticleParameters(i))
-    #exit()
 
     # for MLP define custom external force and set initial forces to zero
     force = 0
@@ -75,7 +69,7 @@ def setup(force_field, plat):
             integrator = integrators.NoseHooverChainVelocityVerletIntegrator\
                 (system, temp*kelvin, coll_freq / picosecond, ts*picoseconds, 10, 5, 5)
             if force_field == "pair_net":
-                print("WARNING - are you sure you want to use this combination of thermostat and potential?")
+                print("WARNING - are you sure you want to use Nose Hoover with pair-net?")
         elif thermostat == "langevin":
             integrator = LangevinMiddleIntegrator(temp*kelvin,
                 coll_freq / picosecond, ts*picoseconds)
@@ -95,14 +89,16 @@ def setup(force_field, plat):
     # minimise initial configuration
     if minim:
         simulation.minimizeEnergy()
+
+    # select initial velocities from MB distribution
     if ensemble == "nvt":
         simulation.context.setVelocitiesToTemperature(temp*kelvin)
 
     # check everything is set up correctly and print to output
-    #nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-    #for i in range(system.getNumParticles()):
-    #    charge, sigma, epsilon = nb.getParticleParameters(i)
-     #   print(charge,sigma,epsilon)
+    nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+    for i in range(system.getNumParticles()):
+        charge, sigma, epsilon = nb.getParticleParameters(i)
+        print(charge,sigma,epsilon)
     #print(nb.getEwaldErrorTolerance())
     #print(nb.getNonbondedMethod())
     #[alpha_ewald, nx, ny, nz] = nb.getPMEParameters()
@@ -180,6 +176,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
             # predict forces - predict_on_batch faster with only single structure
             prediction = model.predict_on_batch([np.reshape(coords
                 [:n_atoms]/angstrom, (1, -1, 3)), np.reshape(atoms,(1, -1))])
+
             # convert to OpenMM internal units
             forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom, (-1, 3))
 
@@ -188,7 +185,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
                 force.setParticleParameters(j, j, forces[j])
             force.updateParametersInContext(simulation.context)
 
-            # TODO: dynamically reassign charges to ML atoms
             # set charges to zero for now
             charges = prediction[2].T
 
@@ -207,14 +203,14 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
                 getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 
             # if not using pairfenet convert forces to kcal/mol/A before printing
-            if force_field == "pairnet":
+            if force_field == "pair_net":
                 forces = simulation.context.getState(getForces=True).\
                     getForces(asNumpy=True).in_units_of(kilocalories_per_mole/angstrom)
                 # TODO: reassign charges using prediction from trained network
                 # charges = nb_force.getParticleParameters(0)???
 
             # predicts energies in kcal/mol
-            if force_field == "pairnet":
+            if force_field == "pair_net":
                 PE = prediction[1][0][0]
             else:
                 PE = state.getPotentialEnergy() / kilocalories_per_mole
