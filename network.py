@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 import numpy as np
-import time, write_output, os
+import write_output, os
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
-from datetime import datetime
-
-start_time = time.time()
 
 # suppress printing of information messages
-tf.get_logger().setLevel('ERROR')
+tf.get_logger().setLevel("ERROR")
 
 class NuclearChargePairs(Layer):
     def __init__(self, _NC2, n_atoms, **kwargs):
@@ -182,7 +179,7 @@ class Network(object):
         input_dir = "trained_model"
         isExist = os.path.exists(input_dir)
         if not isExist:
-            print("Error - previously trained model could not be located.")
+            print("ERROR - previously trained model could not be located.")
             exit()
         prescale = np.loadtxt(f"./{input_dir}/prescale.txt", dtype=np.float64).reshape(-1)
         model = Network.build(self, mol, ann_params, prescale)
@@ -192,7 +189,6 @@ class Network(object):
 
 
     def train(self, model, mol, ann_params, output_dir1, output_dir2):
-
         # ensures that tensorflow does not use more cores than requested
         NUMCORES = int(os.getenv("NSLOTS", 1))
         sess = tf.compat.v1.Session(
@@ -275,9 +271,7 @@ class Network(object):
         atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
         test_coords = np.take(mol.coords, mol.test, axis=0)
         test_atoms = np.tile(atoms, (len(test_coords), 1))
-        startTime = datetime.now()
         test_prediction = model.predict([test_coords, test_atoms])
-        print(datetime.now()-startTime)
         print(f"\nError summary using {len(mol.test)} test structures...")
         print(f"                       MeanAE  |   MaxAE  | L1 (%)")
         print(f"--------------------------------------------------")
@@ -388,7 +382,7 @@ class Network(object):
         # obtain the forces by taking the gradient of the energy
         force = F(n_atoms, n_pairs, name='force')([energy, coords_layer])
 
-        # prediction of uncorrected partial charges
+        # predict partial charges
         # TODO: move charge_scheme options into function
         charge = Q(n_atoms, charge_scheme, name='charge')(output_layer2)
 

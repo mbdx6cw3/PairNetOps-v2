@@ -102,7 +102,7 @@ def main():
         isExist = os.path.exists(input_dir)
         if not isExist:
             os.makedirs(input_dir)
-        read_input.Dataset(mol, size, 1, 1, input_dir, "txt")
+        read_input.Dataset(mol, size, 0, 1, input_dir, "txt")
         mol.orig_energies = np.copy(mol.energies)
 
         # set job flags
@@ -387,7 +387,7 @@ def main():
             input_dir = "qm_data"
             isExist = os.path.exists(input_dir)
             if not isExist:
-                print("Error - no input files detected")
+                print("ERROR - no input files detected")
                 exit()
             output_dir = input_dir
 
@@ -396,10 +396,10 @@ def main():
 
             CV_list = analysis.getCVs()
             if len(CV_list) > 1:
-                print("Error - number of collective variables cannot be > 1")
+                print("ERROR - number of collective variables cannot be > 1")
                 exit()
 
-            new_coords= analysis.rotate_dihedral(mol, CV_list)
+            new_coords = analysis.rotate_dihedral(mol, CV_list)
             write_output.gau(mol, new_coords, output_dir, opt_prop, CV_list)
 
         elif option_flag == 2:
@@ -432,7 +432,7 @@ def main():
             mol = read_input.Molecule()
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
-            # read list of structure indices
+            # read list of structure indices TODO: put this into a module
             indices = np.loadtxt("split_indices.dat", dtype=int)
             new_energies = np.take(mol.energies, indices, axis=0)
             new_coords = np.take(mol.coords, indices, axis=0)

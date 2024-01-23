@@ -169,7 +169,7 @@ def gau(mol, coords, output_dir, opt_prop, CV_list):
 
 
 def dataset(mol, output_dir):
-
+    print("Writing output...")
     # write .txt files
     coord_file = open(f"./{output_dir}/coords.txt", "w")
     energy_file = open(f"./{output_dir}/energies.txt", "w")

@@ -195,6 +195,7 @@ def get_eij(mol, set_size, output_dir):
         e_ij = bias[s].reshape((1, _NC2)) * norm_recip_r
 
         # reference energy biases, will be predicted by the trained potential
+        mol.energies = np.vstack(mol.energies)
         mol.output_eij[s] = np.matmul(np.linalg.pinv(e_ij), mol.energies[s])
 
     # flatten output_matFE instead below?

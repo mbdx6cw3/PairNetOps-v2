@@ -29,7 +29,7 @@ class Molecule(object):
 
 class Dataset():
     def __init__(self, mol, set_size, set_init, set_space, input_dir, format):
-
+        print("Reading dataset...")
         if format == "txt" or format == "gau":
             element = {1: "H", 6: "C", 7: "N", 8: "O"}
             self.atoms = []
