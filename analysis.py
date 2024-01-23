@@ -385,7 +385,7 @@ def dihedral(p):
 def check_stability(mol, set_size, set_init, set_space, output_dir):
     # calculate bond distance list for equilibrium structure
     n_atoms = len(mol.atoms)
-    max_r = 1.6
+    max_r = 1.55
     max_bonds = n_atoms * 3
     atom_indices = np.zeros([max_bonds, 2], dtype=int)
     bond_dist = np.zeros([max_bonds], dtype=float)
@@ -424,7 +424,7 @@ def check_stability(mol, set_size, set_init, set_space, output_dir):
 
     # check that there are no close contacts
     print("Checking close contacts...")
-    min_dist = 0.75 # minimum interatomic distance
+    min_dist = 0.7 # minimum interatomic distance
     for s in range(set_init, set_size):
         for i in range(n_atoms):
             for j in range(i):

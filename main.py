@@ -455,15 +455,17 @@ def main():
         [1] - Gaussian (.out) - qm_data directory required.
         [2] - Text (.txt) - ml_data directory required.
         [3] - Gromacs (.gro) - md_data directory required.
-        >"""))
+        > """))
 
         output_format = int(input("""Output format:
         [1] - Gaussian (.gjf)
         [2] - Text (.txt)
         [3] - Gromacs (.gro)
-        >"""))
+        > """))
 
-        if input_format == output_format:
+        perm_option = str(input("Shuffle permutations? (Y/N) > "))
+
+        if input_format == output_format and perm_option != "Y":
             print("ERROR - input and output format are the same. Nothing to do.")
             exit()
 
@@ -476,7 +478,6 @@ def main():
             except ValueError:
                 print("Invalid Value")
 
-        mol = read_input.Molecule()
         if input_format == 1:
             print("Input format: Gaussian (.out)")
             input_dir = "qm_data"
@@ -495,8 +496,10 @@ def main():
             exit()
 
         # read input
+        mol = read_input.Molecule()
         if input_format == 1:
             read_input.Dataset(mol, size, init, space, input_dir, "gau")
+
         elif input_format == 2 or input_format == 3:
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
@@ -506,15 +509,8 @@ def main():
 
         elif output_format == 2:
             print("Output format: Text (.txt)")
-            perm_option = str(input("Shuffle permutations? (Y/N) > "))
             if perm_option == "Y":
-                perm = True
-            else:
-                perm = False
-            if perm:
                 output_dir = "ml_data_perm"
-                mol = read_input.Molecule()
-                read_input.Dataset(mol, size, init, space, input_dir, "txt")
                 n_perm_grp, perm_atm, n_symm, n_symm_atm = read_input.perm(mol)
                 print("Shuffling atomic permutations...")
                 analysis.permute(mol, n_perm_grp, perm_atm, n_symm, n_symm_atm)
@@ -527,8 +523,9 @@ def main():
 
         # check relevant output directory exists
         isExist = os.path.exists(output_dir)
-        if not isExist:
-            os.makedirs(output_dir)
+        if isExist:
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
 
         # write output
         if output_format == 1:

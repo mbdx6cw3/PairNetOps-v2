@@ -15,6 +15,7 @@ class Molecule(object):
         self.atoms = other.atoms
         self.n_atom = other.n_atom
         self.atom_names = other.atom_names
+        self.energies = other.energies
         if len(other.coords) > 0:
             self.coords = np.reshape(np.vstack(other.coords),
                                      (-1, len(self.atoms), 3))
@@ -24,8 +25,7 @@ class Molecule(object):
         if len(other.charges) > 0:
             self.charges = np.reshape(np.vstack(other.charges),
                                      (-1, len(self.atoms)))
-        if len(other.energies) > 0:
-            self.energies = np.vstack(other.energies)
+
 
 class Dataset():
     def __init__(self, mol, set_size, set_init, set_space, input_dir, format):
@@ -57,6 +57,7 @@ class Dataset():
                 max_rows=set_size * self.n_atom), (set_size, self.n_atom))
 
         elif format == "gau":
+
             self.coords, self.energies, self.forces, self.charges, error = \
                 gau(set_size, set_space, input_dir, self.n_atom)
             if error:
@@ -289,7 +290,8 @@ def gau(set_size, set_space, input_dir, n_atom):
     coords = np.empty(shape=[set_size, n_atom, 3])
     forces = np.empty(shape=[set_size, n_atom, 3])
     charges = np.empty(shape=[set_size, n_atom])
-    normal_term = []
+    normal_term = np.empty(shape=[set_size], dtype=bool)
+    error = False
 
     # loop over all Gaussian files, extract energies, forces and coordinates
     for i_file in range(set_size):
@@ -320,18 +322,18 @@ def gau(set_size, set_space, input_dir, n_atom):
 
             # read atomic forces, convert to kcal/mol/A
             for i_atom, atom in enumerate(force_block):
-                forces[i_file, i_atom] = atom.strip('\n').split()[-3:] * 627.509608 / 0.529177
+                forces[i_file, i_atom] = atom.strip('\n').split()[-3:]
+                forces[i_file, i_atom] = forces[i_file, i_atom]*627.509608/0.529177
 
             # read partial charges
             for i_atom, atom, in enumerate(charge_block):
                 charges[i_file, i_atom] = atom.strip('\n').split()[-1]
 
-            for i_file in range(set_size):
-                if not normal_term[i_file]:
-                    error = True
+            if not normal_term[i_file]:
+                error = True
+                print(error)
 
     return coords, energies, forces, charges, error
-
 
 def perm(mol):
 

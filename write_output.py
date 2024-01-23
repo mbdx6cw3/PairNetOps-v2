@@ -168,7 +168,7 @@ def gau(mol, coords, output_dir, opt_prop, CV_list):
     return None
 
 
-def dataset(n_atom, energies, coords, forces, charges, output_dir):
+def dataset(mol, output_dir):
 
     # write .txt files
     coord_file = open(f"./{output_dir}/coords.txt", "w")
@@ -177,18 +177,19 @@ def dataset(n_atom, energies, coords, forces, charges, output_dir):
     error_file = open(f"./{output_dir}/errors.txt", "w")
     charge_file = open(f"./{output_dir}/charges.txt", "w")
 
-    for i_file in range(len(energies)):
+    for i_file in range(len(mol.energies)):
+        print(mol.energies[i_file], file=energy_file)
 
         # save coordinates and forces (converting to kcal/mol/A)
-        for i_atom in range(n_atom):
-            print(*coords[i_file, i_atom], file=coord_file)
-            print(*forces[i_file, i_atom], file=force_file)
-            print(charges[i_file, i_atom], file=charge_file)
+        for i_atom in range(mol.n_atom):
+            print(*mol.coords[i_file, i_atom], file=coord_file)
+            print(*mol.forces[i_file, i_atom], file=force_file)
+            print(mol.charges[i_file, i_atom], file=charge_file)
 
-        coord_file.close()
-        energy_file.close()
-        force_file.close()
-        charge_file.close()
-        error_file.close()
+    coord_file.close()
+    energy_file.close()
+    force_file.close()
+    charge_file.close()
+    error_file.close()
 
     return None
