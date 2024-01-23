@@ -153,10 +153,10 @@ class F(Layer):
 
 
 class Q(Layer):
-    def __init__(self, n_atoms, correct_q, **kwargs):
+    def __init__(self, n_atoms, charge_scheme, **kwargs):
         super(Q, self).__init__()
         self.n_atoms = n_atoms
-        self.correct = correct_q
+        self.charge_scheme = charge_scheme
 
     def compute_output_shape(self, input_shape):
         batch_size = input_shape[0]
@@ -164,8 +164,9 @@ class Q(Layer):
 
     def call(self, old_q):
         # calculate corrected charges by subtracting net charge from all predicted charges
-        new_q = old_q
-        if self.correct == True:
+        if self.charge_scheme == 0: # direct prediction of uncorrected charges
+            new_q = old_q
+        elif self.charge_scheme == 1: # direct prediction of corrected charges
             sum_q = tf.reduce_sum(old_q) / self.n_atoms
             new_q = old_q - sum_q
         #K.print_tensor(old_q[0], message="pred_q = ")
@@ -374,12 +375,12 @@ class Network(object):
             name='net_layer_n_atm')(connected_layer)
 
         # calculated unscaled interatomic energies
-        unscale_qFE_layer = Eij(n_pairs, max_matFE, name='unscale_qF_layer')\
+        unscale_E_layer = Eij(n_pairs, max_matFE, name='unscale_E_layer')\
             (output_layer1)
 
         # calculate the scaled energy from the coordinates and unscaled qFE
-        E_layer = ERecomposition(n_atoms, n_pairs, name='qFE_layer')\
-            ([coords_layer, unscale_qFE_layer])
+        E_layer = ERecomposition(n_atoms, n_pairs, name='E_layer')\
+            ([coords_layer, unscale_E_layer])
 
         # calculate the unscaled energy
         energy = E(prescale, norm_scheme, name='energy')(E_layer)
@@ -388,36 +389,44 @@ class Network(object):
         force = F(n_atoms, n_pairs, name='force')([energy, coords_layer])
 
         # prediction of uncorrected partial charges
-        if charge_scheme == 1:
-            corr = False
+        # TODO: move charge_scheme options into function
+        charge = Q(n_atoms, charge_scheme, name='charge')(output_layer2)
+
+        #if charge_scheme == 0:
+        #    elec = 0
+            #charge = Q(n_atoms, corr, name='charge')(output_layer2)
+        #elif charge_scheme == 1:
+        #    corr = False
             # predict uncorrected partial charges
-            charge = Q(n_atoms, corr, name='charge')(output_layer2)
-            elec = charge
+         #   charge = Q(n_atoms, corr, name='charge')(output_layer2)
+         #   elec = charge
         # prediction of corrected partial charges
-        elif charge_scheme == 2:
-            corr = True
+        #elif charge_scheme == 2:
+         #   corr = True
             # predict uncorrected partial charges
-            charge = Q(n_atoms, corr, name='charge')(output_layer2)
+         #   charge = Q(n_atoms, corr, name='charge')(output_layer2)
+         #   elec = charge
             # correct partial charges here
         # prediction of electrostatic energy
-        elif charge_scheme == 3:
+       # elif charge_scheme == 3:
             # predict uncorrected partial charges
-            charge = Q(n_atoms, name='charge')(output_layer2)
+          #  charge = Q(n_atoms, name='charge')(output_layer2)
+         #   elec = charge
             # correct partial charges
             # calculate unscaled electrostatic energy from corrected partial charges
             # scale electrostatic energy
         # prediction of decomposed and recomposed charge pairs - Neil's Matlab stuff
-        elif charge_scheme == 4:
+        #elif charge_scheme == 4:
             # predict uncorrected partial charges
-            charge = Q(n_atoms, name='charge')(output_layer2)
+         #   charge = Q(n_atoms, name='charge')(output_layer2)
             # correct charges
             # calculate electrostatic energy - this goes in loss function
-            elec = charge
+         #   elec = charge
 
         # define the input layers and output layers used in the loss function
         model = Model(
                 inputs=[coords_layer, nuclear_charge_layer],
-                outputs=[force, energy, elec],
+                outputs=[force, energy, charge],
                 )
 
         return model
