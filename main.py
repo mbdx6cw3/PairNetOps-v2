@@ -34,7 +34,6 @@ def main():
     # determine type of calculation to do
     if input_flag == 1:
 
-        startTime = datetime.now()
         option_flag = int(input("""Run a Molecular Dynamics Simulation.
             [1] - Use an Empirical Potential.
             [2] - Use a PairNet Potential.
@@ -66,9 +65,8 @@ def main():
         simulation, system, output_dir, md_params, gro, force = md.setup(potential, plat)
 
         # run simulation
-        # TODO: change md simulation output to md_data?
+        startTime = datetime.now()
         md.simulate(simulation, system, potential, output_dir, md_params, gro, force)
-
         print(datetime.now() - startTime)
 
     elif input_flag == 2:
@@ -146,6 +144,8 @@ def main():
             if not isExist:
                 os.makedirs(output_dir2)
             shutil.copy2(f"./ann_params.txt", f"./{output_dir2}")
+            np.savetxt(f"./{output_dir2}/nuclear_charges.txt",
+                (np.array(mol.atoms)).reshape(-1, 1))
 
             # pairwise decomposition of energies
             analysis.get_eij(mol, size, output_dir1)
@@ -154,6 +154,8 @@ def main():
             if not ann_load:
                 # get prescaling factors
                 prescale = analysis.prescale_eij(mol, prescale)
+                np.savetxt(f"./{output_dir2}/prescale.txt",
+                           (np.array(prescale)).reshape(-1, 1))
                 print("Building model...")
                 model = network.build(mol, ann_params, prescale)
 
@@ -167,10 +169,6 @@ def main():
 
             print("Saving model...")
             model.save_weights(f"./{output_dir2}/best_ever_model")
-            np.savetxt(f"./{output_dir2}/nuclear_charges.txt",
-                (np.array(mol.atoms)).reshape(-1, 1))
-            np.savetxt(f"./{output_dir2}/prescale.txt",
-                (np.array(prescale)).reshape(-1, 1))
 
         # test model
         if ann_test:
@@ -219,27 +217,24 @@ def main():
             print()
 
             if input_type == 1:
-                print("Loading QM dataset...")
                 input_dir = "ml_data"
                 isExist = os.path.exists(input_dir)
                 if not isExist:
-                    print("Error - no input files detected")
+                    print("Error - no input files in the working directory")
                     exit()
                 mol = read_input.Molecule()
                 read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
             elif input_type == 2:
-                print("Loading MD dataset...")
                 input_dir = "md_data"
                 isExist = os.path.exists(input_dir)
                 if not isExist:
-                    print("Error - no input files detected")
+                    print("Error - no input files in the working directory")
                     exit()
                 mol = read_input.Molecule()
                 read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
             elif input_type == 3:
-                print("Loading external dataset...")
                 input_dir = "/Users/user/datasets"
                 mol = read_input.Molecule()
                 read_input.Dataset(mol, size, init, space, input_dir, "ext")
@@ -249,7 +244,7 @@ def main():
             input_dir1 = "md_data"
             isExist = os.path.exists(input_dir1)
             if not isExist:
-                print("Error - no input files detected")
+                print("Error - no input files in the working directory.")
                 exit()
             mol1 = read_input.Molecule()
             read_input.Dataset(mol1, size, init, space, input_dir1, "txt")
@@ -257,7 +252,7 @@ def main():
             input_dir2 = "qm_data"
             isExist = os.path.exists(input_dir2)
             if not isExist:
-                print("Error - no input files detected")
+                print("Error - no input files in the working directory.")
                 exit()
             mol2 = read_input.Molecule()
             read_input.Dataset(mol1, size, init, space, input_dir1, "txt")
@@ -311,11 +306,15 @@ def main():
                 analysis.pop2D(mol, n_bins, CV_list, output_dir, init, size)
 
         elif option_flag == 4:
+            #print("get interatomic charges")
+            #analysis.get_interatomic_charges(mol)
+
             print("Analyse Charges.")
             charge_option = int(input("""
                 [1] Calculate mean partial charges.
                 [2] Calculate partial charge probability distribution.
                 [3] Calculate partial charge vs geometric variable.
+                [4] Calculate intramolecular electrostatic potential energy.
                 > """))
             print()
 
@@ -335,6 +334,11 @@ def main():
                 print("Calculating partial charge vs geometric variable...")
                 CV_list = analysis.getCVs(1)
                 analysis.charge_CV(mol, atom, CV_list[0], size, output_dir)
+
+            elif charge_option == 4:
+                print("Calculating intramolecular electrostatic potential energy...")
+                energy_elec = analysis.electrostatic_energy(mol.charges, mol.coords)
+                print(f"{energy_elec} kcal/mol")
 
         elif option_flag == 5:
             print("Compare Datasets.")
@@ -366,7 +370,7 @@ def main():
             input_dir = "md_data"
             isExist = os.path.exists(input_dir)
             if not isExist:
-                print("Error - no input files detected")
+                print("Error - no input files in the working directory.")
                 exit()
 
     elif input_flag == 4:
@@ -387,7 +391,7 @@ def main():
             input_dir = "qm_data"
             isExist = os.path.exists(input_dir)
             if not isExist:
-                print("ERROR - no input files detected")
+                print("ERROR - no input files in the working directory.")
                 exit()
             output_dir = input_dir
 
@@ -410,7 +414,7 @@ def main():
             input_dir = "ml_data"
             isExist = os.path.exists(input_dir)
             if not isExist:
-                print("Error - no input files detected")
+                print("Error - no input files in the working directory")
                 exit()
 
             output_dir = "ml_data_new"
@@ -492,7 +496,7 @@ def main():
 
         isExist = os.path.exists(input_dir)
         if not isExist:
-            print("Error - no input files detected")
+            print("Error - no input files in the working directory.")
             exit()
 
         # read input

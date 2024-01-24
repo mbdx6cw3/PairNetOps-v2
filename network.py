@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
-import write_output, os
+import write_output, os, analysis
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model
@@ -150,9 +150,10 @@ class F(Layer):
 
 
 class Q(Layer):
-    def __init__(self, n_atoms, charge_scheme, **kwargs):
+    def __init__(self, n_atoms, n_pairs, charge_scheme, **kwargs):
         super(Q, self).__init__()
         self.n_atoms = n_atoms
+        self.n_pairs = n_pairs
         self.charge_scheme = charge_scheme
 
     def compute_output_shape(self, input_shape):
@@ -161,11 +162,18 @@ class Q(Layer):
 
     def call(self, old_q):
         # calculate corrected charges by subtracting net charge from all predicted charges
-        if self.charge_scheme == 0: # direct prediction of uncorrected charges
+        if self.charge_scheme == 1: # training on uncorrected charges
             new_q = old_q
-        elif self.charge_scheme == 1: # direct prediction of corrected charges
+        elif self.charge_scheme == 2: # training on corrected charges
             sum_q = tf.reduce_sum(old_q) / self.n_atoms
             new_q = old_q - sum_q
+        elif self.charge_scheme == 3: # training on "interatomic charges"
+            # recompose charges here (see analysis.getrecomposedcharges)
+            pass
+        elif self.charge_scheme == 4: # training on electrostatic energy (WHY?)
+            # sum all charge pairs to get electrostatic energy
+            # might need to z-normalise electrostatic energies prior to training
+            pass
         #K.print_tensor(old_q[0], message="pred_q = ")
         #K.print_tensor(new_q[0], message="corr_q = ")
         return new_q
@@ -309,10 +317,20 @@ class Network(object):
         test_output_q = np.take(mol.charges, mol.test, axis=0)
         mean_ae, max_ae, L1 = Network.summary(self, test_output_q.flatten(),
             corr_prediction.flatten(), output_dir, "q")
-        print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
+        print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  |   n/a ")
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
+
+        # electrostatic energy test output
+        elec_prediction = analysis.electrostatic_energy(corr_prediction, mol.coords)
+        test_output_elec = np.take(mol.elec_energies, mol.test, axis=0)
+        mean_ae, max_ae, L1 = Network.summary(self, test_output_elec.flatten(),
+            elec_prediction.flatten(), output_dir, "E_elec")
+        print(f"E_elec (kcal mol^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
+        np.savetxt(f"./{output_dir}/elec_test.dat", np.column_stack((
+            test_output_elec.flatten(), elec_prediction.flatten())),
+            delimiter=" ", fmt="%.6f")
 
         # calculate electrostatic energy and compare to reference
 
@@ -384,38 +402,15 @@ class Network(object):
 
         # predict partial charges
         # TODO: move charge_scheme options into function
-        charge = Q(n_atoms, charge_scheme, name='charge')(output_layer2)
+        if charge_scheme == 0 or charge_scheme == 1:
+            charge = Q(n_atoms, n_pairs, charge_scheme, name='charge')\
+                (output_layer2)
+        elif charge_scheme == 2:
+            charge = Q(n_atoms, n_pairs, charge_scheme, name ='charge')\
+                (output_layer1)
+            pass
+            # TODO: charge pairs will have to take output_layer1 as input.
 
-        #if charge_scheme == 0:
-        #    elec = 0
-            #charge = Q(n_atoms, corr, name='charge')(output_layer2)
-        #elif charge_scheme == 1:
-        #    corr = False
-            # predict uncorrected partial charges
-         #   charge = Q(n_atoms, corr, name='charge')(output_layer2)
-         #   elec = charge
-        # prediction of corrected partial charges
-        #elif charge_scheme == 2:
-         #   corr = True
-            # predict uncorrected partial charges
-         #   charge = Q(n_atoms, corr, name='charge')(output_layer2)
-         #   elec = charge
-            # correct partial charges here
-        # prediction of electrostatic energy
-       # elif charge_scheme == 3:
-            # predict uncorrected partial charges
-          #  charge = Q(n_atoms, name='charge')(output_layer2)
-         #   elec = charge
-            # correct partial charges
-            # calculate unscaled electrostatic energy from corrected partial charges
-            # scale electrostatic energy
-        # prediction of decomposed and recomposed charge pairs - Neil's Matlab stuff
-        #elif charge_scheme == 4:
-            # predict uncorrected partial charges
-         #   charge = Q(n_atoms, name='charge')(output_layer2)
-            # correct charges
-            # calculate electrostatic energy - this goes in loss function
-         #   elec = charge
 
         # define the input layers and output layers used in the loss function
         model = Model(

@@ -222,6 +222,7 @@ def get_NRF(zA, zB, r):
     return _NRF
 
 
+# TODO: can this be removed?
 def z_score(x, prescale):
     """
     computes  X, zcore normalized by column
@@ -513,3 +514,90 @@ def generate_rotation_matrix(angle, axis):
     import numpy as np
     rotation = R.from_rotvec(angle * np.array(axis))
     return rotation.as_matrix()
+
+
+def get_interatomic_charges(self):
+    '''
+    This function takes molecule coords (C), atomic charges (Q) and
+    nuclear charges (Z) and decomposes atomic charges with a 1/r bias.
+    Decomposed pairwise charges are recomposed and checked with
+    original atomic charges to ensure the decomposition scheme is
+    performed correctly.
+
+    Variables are -
+    self:       molecule object containing ZCFEQ information
+    '''
+
+    n_atoms = len(self.atoms)
+    _NC2 = int(n_atoms * (n_atoms - 1) / 2)
+    n_structures = len(self.coords)
+    mat_bias = np.zeros((n_structures, n_atoms, _NC2))
+    mat_bias2 = np.zeros((n_structures, _NC2))
+    mat_Q = []
+    for s in range(n_structures):
+        _N = -1
+        for i in range(n_atoms):
+            for j in range(i):
+                _N += 1
+                r_ij = np.linalg.norm(self.coords[s][i] - self.coords[s][j])
+                if i != j:
+                    bias = 1 / r_ij
+                    mat_bias[s, i, _N] = bias
+                    mat_bias[s, j, _N] = -bias
+                    mat_bias2[s, _N] = bias
+
+        charges2 = self.charges[s].reshape(n_atoms)
+        _Q = np.matmul(np.linalg.pinv(mat_bias[s]), charges2)
+        _N2 = -1
+        for i in range(n_atoms):
+            for j in range(i):
+                _N2 += 1
+                _Q[_N2] = _Q[_N2] * mat_bias2[s, _N2]
+        mat_Q.append(_Q)
+
+    self.mat_Q = np.reshape(np.vstack(mat_Q), (n_structures, _NC2))
+    recomp_Q = get_recomposed_charges(self.coords, self.mat_Q, n_atoms, _NC2)
+
+    if np.array_equal(np.round(recomp_Q, 1),
+                      np.round(self.charges, 1)) == False:
+        raise ValueError('Recomposed charges {} do not ' \
+                         'equal initial charges {}'.format(
+            recomp_Q, self.charges))
+
+
+def get_recomposed_charges(all_coords, all_prediction, n_atoms, _NC2):
+    '''Convert pairwise decomposed charges back into atomic charges.'''
+    all_recomp_charges = []
+    for coords, prediction in zip(all_coords, all_prediction):
+        qij = np.zeros((n_atoms, n_atoms))
+        # normalised interatomic vectors
+        q_list = []
+        for i in range(1, n_atoms):
+            for j in range(i):
+                # TODO: where is the 1/r bias???
+                qij[i, j] = 1
+                qij[j, i] = -qij[i, j]
+                q_list.append([i, j])
+        _T = np.zeros((n_atoms, _NC2))
+        for i in range(int(_T.shape[0])):
+            for k in range(len(q_list)):
+                if q_list[k][0] == i:
+                    _T[range(i, (i + 1)), k] = qij[q_list[k][0], q_list[k][1]]
+                if q_list[k][1] == i:
+                    _T[range(i, (i + 1)), k] = qij[q_list[k][1], q_list[k][0]]
+        recomp_charges = np.dot(_T, prediction.flatten())
+        all_recomp_charges.append(recomp_charges)
+    return np.array(all_recomp_charges).reshape(-1, n_atoms)
+
+
+def electrostatic_energy(charges, coords):
+    elec = np.zeros(charges.shape[0])
+    for s in range(charges.shape[0]):
+        for i in range(charges.shape[1]):
+            for j in range(i):
+                r_ij = np.linalg.norm(coords[s][i] - coords[s][j])
+                coul_sum = charges[s][i] * charges[s][j] / r_ij
+                elec[s] = elec[s] + coul_sum
+    # converts to kcal/mol
+    return (elec*(1.0e10)*(6.022e23)*(1.602e-19)**2)/4.184/1000/8.854e-12
+

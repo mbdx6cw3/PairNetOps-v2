@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import numpy as np
 from itertools import islice
+import analysis
 
 class Molecule(object):
     '''
@@ -16,6 +17,8 @@ class Molecule(object):
         self.n_atom = other.n_atom
         self.atom_names = other.atom_names
         self.energies = other.energies
+        self.elec_energies = other.elec_energies
+
         if len(other.coords) > 0:
             self.coords = np.reshape(np.vstack(other.coords),
                                      (-1, len(self.atoms), 3))
@@ -45,7 +48,8 @@ class Dataset():
                 print("ERROR - mismatch between molecule size and dataset size.")
                 print("Check the nuclear_charges.txt file.")
                 exit()
-            self.energies = np.loadtxt(f"./{input_dir}/energies.txt", max_rows=set_size)
+            self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt", max_rows=set_size), (set_size))
+            #self.energies = np.loadtxt(f"./{input_dir}/energies.txt", max_rows=set_size)
             if len(self.energies) < set_size:
                 print("ERROR - requested set size exceeds the dataset size")
                 exit()
@@ -103,6 +107,8 @@ class Dataset():
                 self.energies = dataset["energies"]
                 self.forces = dataset["forces"]
             self.charges = 0.0
+
+        self.elec_energies = analysis.electrostatic_energy(self.charges, self.coords)
 
         mol.get_ZCFE(self)  # populate molecule class
 
