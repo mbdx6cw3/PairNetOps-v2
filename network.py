@@ -323,7 +323,7 @@ class Network(object):
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
 
         # electrostatic energy test output
-        elec_prediction = analysis.electrostatic_energy(corr_prediction, mol.coords)
+        elec_prediction = analysis.electrostatic_energy(corr_prediction, test_coords)
         test_output_elec = np.take(mol.elec_energies, mol.test, axis=0)
         mean_ae, max_ae, L1 = Network.summary(self, test_output_elec.flatten(),
             elec_prediction.flatten(), output_dir, "E_elec")
