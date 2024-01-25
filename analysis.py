@@ -55,6 +55,7 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
         elif len(CV_list) == 4:
             x_label = "$\u03C6_{ijkl} (degrees)$"
             CV[item] = dihedral(p)
+
     write_output.scatterplot(CV, partial_charge, "linear", x_label,
         "partial charge (e)", f"charge_geom_scatter_{index}", output_dir)
     np.savetxt(f"./{output_dir}/charge_geom_scatter_{index}.dat",
@@ -71,7 +72,7 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
     return None
 
 
-def energy_CV(mol, atom_indices, set_size, output_dir):
+def energy_CV(mol, n_bins, atom_indices, set_size, output_dir):
     CV_list = atom_indices
     CV = np.empty(shape=[set_size])
     for item in range(set_size):
@@ -87,19 +88,25 @@ def energy_CV(mol, atom_indices, set_size, output_dir):
             x_label = "$\u03C6_{ijkl} (degrees)$"
             CV[item] = dihedral(p)
     # plot distribution, scatter and save data
-    energy = mol.energies[:,0] - np.min(mol.energies[:,0])
+    energy = mol.energies - np.min(mol.energies)
     write_output.scatterplot(CV, energy, "linear", x_label,
         "rel. energy (kcal/mol)", "energy_geom_scatter", output_dir)
     np.savetxt(f"./{output_dir}/energy_geom_scatter.dat",
         np.column_stack((CV, energy)), delimiter=" ", fmt="%.6f")
 
+    if len(CV_list) == 2 or len(CV_list) == 3:
+        range_min = np.min(CV)
+        range_max = np.max(CV)
+    else:
+        range_min = -180.0
+        range_max = 180.0
     means, edges, counts = binned_statistic(CV, energy, statistic='min',
-        bins=72, range=(-180.0, 180.0))
+        bins=n_bins, range=(range_min, range_max))
     bin_width = edges[1] - edges[0]
     bin_centers = edges[1:] - bin_width / 2
     write_output.lineplot(bin_centers, means, "linear", x_label,
-        "rel. mean energy (kcal/mol)", "energy_geom", output_dir)
-    np.savetxt(f"./{output_dir}/energy_geom.dat",
+        "rel. mean energy (kcal/mol)", "energy_geom_dist", output_dir)
+    np.savetxt(f"./{output_dir}/energy_geom_dist.dat",
         np.column_stack((bin_centers, means)), delimiter = " ",
                fmt="%.6f")
     return None
@@ -269,22 +276,21 @@ def fes2D(input_dir, output_dir):
     return None
 
 
-def pop2D(mol1, n_bins, CV_list, output_dir, init, set_size):
+def pop2D(mol, n_bins, CV_list, output_dir, set_size):
     bin_width = 360 / n_bins
     pop = np.zeros(shape=(n_bins, n_bins))
-    for item in range(init, set_size):
+    for item in range(set_size):
         bin = np.empty(shape=[CV_list.shape[0]], dtype=int)
         for i_dih in range(CV_list.shape[0]):
             p = np.zeros([CV_list.shape[1], 3])
-            p[0:] = mol1.coords[item][CV_list[i_dih][:]]
+            p[0:] = mol.coords[item][CV_list[i_dih][:]]
             bin[i_dih] = int((dihedral(p) + 180) / bin_width)
         if len(bin) == 1:
             pop[bin[0]] += 1
         elif len(bin) == 2:
             pop[bin[1]][bin[0]] += 1
-    pop = pop / (set_size - init)
-    x, y = np.meshgrid(np.linspace(-180, 180, n_bins),
-                       np.linspace(-180, 180, n_bins))
+    pop = pop / (set_size)
+    x, y = np.meshgrid(np.linspace(-180, 180, n_bins), np.linspace(-180, 180, n_bins))
     write_output.heatmap2D(x, y, pop, pop.max(), output_dir, "pop_2d", "gist_heat",fe_map=False)
     count = 0
     for i in range(n_bins):
@@ -295,18 +301,32 @@ def pop2D(mol1, n_bins, CV_list, output_dir, init, set_size):
     return None
 
 
-def pop1D(mol1, n_bins, CV_list, output_dir, init, set_size):
-    dih = np.zeros(shape=(set_size-init))
-    for item in range(init, set_size):
-        p = np.zeros([CV_list.shape[1], 3])
-        p[0:] = mol1.coords[item][CV_list[0][:]]
-        dih[item-init] = dihedral(p)
-    hist, bin = np.histogram(dih, n_bins, (-180, 180))
+def pop1D(mol, n_bins, CV_list, output_dir, set_size):
+    CV = np.empty(shape=[set_size])
+    for item in range(set_size):
+        p = np.zeros([len(CV_list), 3])
+        p[0:] = mol.coords[item][CV_list[:]]
+        if len(CV_list) == 2:
+            x_label = "$r_{ij} / \AA$"
+            CV[item] = distance(p)
+        elif len(CV_list) == 3:
+            x_label = "$\u03F4_{ijk}  (degrees)$"
+            CV[item] = angle(p)
+        elif len(CV_list) == 4:
+            x_label = "$\u03C6_{ijkl} (degrees)$"
+            CV[item] = dihedral(p)
+    if len(CV_list) == 2 or len(CV_list) == 3:
+        range_min = np.min(CV)
+        range_max = np.max(CV)
+    else:
+        range_min = -180.0
+        range_max = 180.0
+    hist, bin = np.histogram(CV, n_bins, (range_min, range_max))
     bin = bin[range(1, bin.shape[0])]
-    write_output.lineplot(bin, hist / (set_size - init), "linear", "pop_1d",
+    write_output.lineplot(bin, hist / (set_size), "linear", x_label,
     "probability", "geom_dist", output_dir)
     np.savetxt(f"./{output_dir}/geom_dist.dat", np.column_stack((bin,
-        hist / (set_size - init))), delimiter=" ", fmt="%.6f")
+        hist / (set_size))), delimiter=" ", fmt="%.6f")
 
 
 def force_MSE_dist(baseline, values, output_dir):
@@ -342,16 +362,6 @@ def energy_corr(baseline, values, output_dir):
     return None
 
 def getCVs(n_CV):
-    #while True:
-     #   try:
-     #       n_CV = int(input("Enter the number of CVs > "))
-       #     break
-      #  except ValueError:
-       #     print("Invalid Value")
-       # except n_CV > 2:
-        #    print("Error - number of CVs can only be 1 or 2")
-
-    CV_list = np.empty(shape=[n_CV, 4], dtype=int)
     for i_CV in range(n_CV):
         atom_indices = input(f"""
         Enter atom indices separated by spaces:
@@ -360,6 +370,8 @@ def getCVs(n_CV):
             e.g. for a dihedral "5 4 6 10"
             Consult mapping.dat for connectivity.
         > """)
+        if i_CV == 0:
+            CV_list = np.empty(shape=[n_CV, len(atom_indices.split())], dtype=int)
         CV_list[i_CV, :] = np.array(atom_indices.split())
     return CV_list
 
@@ -384,7 +396,7 @@ def dihedral(p):
     y = np.dot(m, v[1])
     return np.degrees(np.arctan2( y, x ))
 
-def check_stability(mol, set_size, set_init, set_space, output_dir):
+def check_stability(mol, set_size, output_dir):
     # calculate bond distance list for equilibrium structure
     n_atoms = len(mol.atoms)
     max_r = 1.55
@@ -394,7 +406,7 @@ def check_stability(mol, set_size, set_init, set_space, output_dir):
     n_bonds = 0
     for i in range(n_atoms):
         for j in range(i):
-            r_ij = np.linalg.norm(mol.coords[set_init][i] - mol.coords[set_init][j])
+            r_ij = np.linalg.norm(mol.coords[0][i] - mol.coords[0][j])
             if r_ij < max_r:
                 atom_indices[n_bonds][0] = i
                 atom_indices[n_bonds][1] = j
@@ -410,7 +422,7 @@ def check_stability(mol, set_size, set_init, set_space, output_dir):
     atom_names = []
     for i in range(len(mol.atoms)):
         atom_names.append(element[mol.atoms[i]])
-    for s in range(set_init, set_size):
+    for s in range(set_size):
         for i_bond in range(n_bonds):
             p = np.zeros([2, 3])
             p[:] = mol.coords[s][atom_indices[i_bond][:]]
@@ -427,7 +439,7 @@ def check_stability(mol, set_size, set_init, set_space, output_dir):
     # check that there are no close contacts
     print("Checking close contacts...")
     min_dist = 0.7 # minimum interatomic distance
-    for s in range(set_init, set_size):
+    for s in range(set_size):
         for i in range(n_atoms):
             for j in range(i):
                 r_ij = np.linalg.norm(mol.coords[s][i] - mol.coords[s][j])

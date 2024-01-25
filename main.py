@@ -23,13 +23,13 @@ def main():
             [4] - Generate a New Dataset.
             [5] - Reformat an Existing Dataset
             > """))
+
+        if input_flag > 5 or input_flag < 1:
+            exit("Invalid Value")
     except ValueError:
-        print("Invalid Value")
-        exit()
-    except input_flag > 5:
-        print("Invalid Value")
-        exit()
+        exit("Invalid Value")
     print()
+
 
     # determine type of calculation to do
     if input_flag == 1:
@@ -201,19 +201,26 @@ def main():
             while True:
                 try:
                     size = int(input("Enter number of structures > "))
-                    init = int(input("Enter the initial structure > "))
-                    space = int(input("Enter spacing between structures > "))
+                    #init = int(input("Enter the initial structure > "))
+                    init = 0
+                    #space = int(input("Enter spacing between structures > "))
+                    space = 1
                     print()
                     break
                 except ValueError:
-                    print("Invalid Value")
+                    exit("Invalid Value")
 
         if option_flag < 5:
-            input_type = int(input("""Type of Dataset to Analyse:
-            [1] - QM Dataset.
-            [2] - MD Dataset.
-            [3] - External Dataset.
-            > """))
+            try:
+                input_type = int(input("""Type of Dataset to Analyse:
+                [1] - QM Dataset.
+                [2] - MD Dataset.
+                [3] - External Dataset.
+                > """))
+                if input_type > 3 or input_type < 1:
+                    exit("Invalid Value")
+            except ValueError:
+                exit("Invalid Value")
             print()
 
             if input_type == 1:
@@ -271,7 +278,7 @@ def main():
 
         elif option_flag == 2:
             print("Analyse Stability.")
-            analysis.check_stability(mol, size, init, space, output_dir)
+            analysis.check_stability(mol, size, output_dir)
 
         elif option_flag == 3:
             print("Analyse Geometry.")
@@ -285,8 +292,9 @@ def main():
 
             if geom_flag == 1:
                 print("Get energy vs geometric variable.")
+                n_bins = int(input("Enter the number of bins > "))
                 CV_list = analysis.getCVs(1)
-                analysis.energy_CV(mol, CV_list[0], size, output_dir)
+                analysis.energy_CV(mol, n_bins, CV_list[0], size, output_dir)
 
             elif geom_flag == 2:
                 print("Get root mean squared deviation of distance matrix.")
@@ -296,14 +304,14 @@ def main():
             elif geom_flag == 3:
                 print("Get 1D probability distribution of geometric variable.")
                 n_bins = int(input("Enter the number of bins > "))
-                CV_list = analysis.getCVs()
-                analysis.pop1D(mol, n_bins, CV_list[0], output_dir, init, size)
+                CV_list = analysis.getCVs(1)
+                analysis.pop1D(mol, n_bins, CV_list[0], output_dir, size)
 
             elif geom_flag == 4:
                 print("Get 2D probability distribution of geometric variable.")
                 n_bins = int(input("Enter the number of bins > "))
-                CV_list = analysis.getCVs()
-                analysis.pop2D(mol, n_bins, CV_list, output_dir, init, size)
+                CV_list = analysis.getCVs(2)
+                analysis.pop2D(mol, n_bins, CV_list, output_dir, size)
 
         elif option_flag == 4:
             #print("get interatomic charges")

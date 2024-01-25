@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
 
-plt.rcParams["font.size"] = 24
+plt.rcParams["font.size"] = 12
 #plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams['mathtext.fontset'] = 'custom'
 #plt.rcParams['mathtext.it'] = 'Times New Roman' #italic?
