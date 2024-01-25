@@ -231,6 +231,7 @@ def main():
                     exit()
                 mol = read_input.Molecule()
                 read_input.Dataset(mol, size, init, space, input_dir, "txt")
+                # TODO: size needs to change after this
 
             elif input_type == 2:
                 input_dir = "md_data"

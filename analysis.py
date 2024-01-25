@@ -417,11 +417,7 @@ def check_stability(mol, set_size, output_dir):
     stable = True
 
     print("Checking bond distance deviation criteria...")
-    max_dev = 0.25 # maximum bond distance deviation
-    element = {1: "H", 6: "C", 7: "N", 8: "O"}
-    atom_names = []
-    for i in range(len(mol.atoms)):
-        atom_names.append(element[mol.atoms[i]])
+    max_dev = 0.33 # maximum bond distance deviation
     for s in range(set_size):
         for i_bond in range(n_bonds):
             p = np.zeros([2, 3])
@@ -433,7 +429,7 @@ def check_stability(mol, set_size, output_dir):
                     atom_indices[i_bond][1], r_ij, bond_dist[i_bond])
                 print("Writing .pdb file...")
                 write_output.write_pdb(mol.coords[s][:][:], "name", 1, mol.atoms,
-                    atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
+                    mol.atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
                 stable = False
 
     # check that there are no close contacts
@@ -448,7 +444,7 @@ def check_stability(mol, set_size, output_dir):
                     print(s, i, j, r_ij)
                     print("Writing .pdb file...")
                     write_output.write_pdb(mol.coords[s][:][:], "name", 1, mol.atoms,
-                        atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
+                        mol.atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
                     stable = False
 
     if stable:

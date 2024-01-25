@@ -34,7 +34,7 @@ class Dataset():
     def __init__(self, mol, set_size, set_init, set_space, input_dir, format):
         print("Reading dataset...")
         if format == "txt" or format == "gau":
-            element = {1: "H", 6: "C", 7: "N", 8: "O"}
+            element = {1: "H", 6: "C", 7: "N", 8: "O"} # add more elements
             self.atoms = []
             self.atom_names = []
             input_ = open(f"./nuclear_charges.txt", "r")
