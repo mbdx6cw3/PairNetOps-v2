@@ -490,10 +490,8 @@ def main():
         while True:
             try:
                 size = int(input("Enter number of structures > "))
-                #init = int(input("Enter the initial structure > "))
-                #space = int(input("Enter spacing between structures > "))
-                init = 0
-                space = 1
+                init = int(input("Enter the initial structure > "))
+                space = int(input("Enter spacing between structures > "))
                 break
             except ValueError:
                 print("Invalid Value")
@@ -524,11 +522,11 @@ def main():
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
         if output_format == 1:
-            print("Output format: Gaussian (.gjf)")
+            print("Output format: .gjf")
             output_dir = "qm_data"
 
         elif output_format == 2:
-            print("Output format: Text (.txt)")
+            print("Output format: .txt")
             if perm_option == "Y":
                 output_dir = "ml_data_perm"
                 n_perm_grp, perm_atm, n_symm, n_symm_atm = read_input.perm(mol)
@@ -538,7 +536,7 @@ def main():
                 output_dir = "ml_data"
 
         elif output_format == 3:
-            print("Output format: Gromacs (.gro)")
+            print("Output format: .gro")
             output_dir = "md_data"
 
         # check relevant output directory exists
@@ -549,7 +547,7 @@ def main():
 
         # write output
         if output_format == 1:
-            write_output.gau(mol, mol.coords, output_dir, 0)
+            write_output.gau(mol, mol.coords, output_dir, 0, 0)
         elif output_format == 2:
             write_output.dataset(mol, output_dir)
         elif output_format == 3:

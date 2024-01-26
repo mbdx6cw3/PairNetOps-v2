@@ -135,10 +135,10 @@ def gau(mol, coords, output_dir, opt_prop, CV_list):
         gaussian_opt = open(f"./gaussian_opt.txt", "r")
         text_opt = gaussian_opt.read().strip('\n')
         opt_prop = int(100/opt_prop)
+        CV_list = [i + 1 for i in CV_list]
     else:
         opt_prop = 10000000
 
-    CV_list = [i + 1 for i in CV_list]
     # create QM input files
     for item in range(len(mol.coords)):
         if item == 0:
