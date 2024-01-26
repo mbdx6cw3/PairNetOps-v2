@@ -435,8 +435,10 @@ def main():
             while True:
                 try:
                     size = int(input("Enter number of structures > "))
-                    init = int(input("Enter the initial structure > "))
-                    space = int(input("Enter spacing between structures > "))
+                    #init = int(input("Enter the initial structure > "))
+                    #space = int(input("Enter spacing between structures > "))
+                    init = 0
+                    space = 1
                     break
                 except ValueError:
                     print("Invalid Value")
@@ -463,18 +465,21 @@ def main():
 
     elif input_flag == 5:
         print("Reformat an Existing Dataset.")
+        print()
 
         input_format = int(input("""Input format:
-        [1] - Gaussian (.out) - qm_data directory required.
-        [2] - Text (.txt) - ml_data directory required.
-        [3] - Gromacs (.gro) - md_data directory required.
+        [1] - qm_data (.out)
+        [2] - ml_data (.txt)
+        [3] - md_data (.txt)
         > """))
+        print()
 
         output_format = int(input("""Output format:
         [1] - Gaussian (.gjf)
         [2] - Text (.txt)
         [3] - Gromacs (.gro)
         > """))
+        print()
 
         perm_option = str(input("Shuffle permutations? (Y/N) > "))
 
@@ -485,22 +490,24 @@ def main():
         while True:
             try:
                 size = int(input("Enter number of structures > "))
-                init = int(input("Enter the initial structure > "))
-                space = int(input("Enter spacing between structures > "))
+                #init = int(input("Enter the initial structure > "))
+                #space = int(input("Enter spacing between structures > "))
+                init = 0
+                space = 1
                 break
             except ValueError:
                 print("Invalid Value")
 
         if input_format == 1:
-            print("Input format: Gaussian (.out)")
+            print("Input format: .out")
             input_dir = "qm_data"
 
         elif input_format == 2:
-            print("Input format: Text (.txt)")
+            print("Input format: .txt")
             input_dir = "ml_data"
 
         elif input_format == 3:
-            print("Input format: Gromacs (.gro)")
+            print("Input format: .txt")
             input_dir = "md_data"
 
         isExist = os.path.exists(input_dir)
