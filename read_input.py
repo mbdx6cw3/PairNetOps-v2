@@ -31,7 +31,7 @@ class Molecule(object):
 
 
 class Dataset():
-    def __init__(self, mol, set_size, set_init, set_space, input_dir, format):
+    def __init__(self, mol, tot_size, init, space, input_dir, format):
         print("Reading dataset...")
         if format == "txt" or format == "gau":
             element = {1: "H", 6: "C", 7: "N", 8: "O"} # add more elements
@@ -42,28 +42,33 @@ class Dataset():
                 self.atoms.append(int(atom))
                 self.atom_names.append(element[self.atoms[-1]])
             self.n_atom = len(self.atoms)
-
+        size = tot_size - init
         if format == "txt":
-            if np.loadtxt(f"./{input_dir}/coords.txt").shape[0] % self.n_atom != 0:
+            if np.loadtxt(f"./{input_dir}/coords.txt").shape[0]%self.n_atom != 0:
                 print("ERROR - mismatch between molecule size and dataset size.")
                 print("Check the nuclear_charges.txt file.")
                 exit()
-            self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt", max_rows=set_size), (set_size))
-            #self.energies = np.loadtxt(f"./{input_dir}/energies.txt", max_rows=set_size)
-            if len(self.energies) < set_size:
+            print(tot_size, size, init, space)
+            self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt",
+                max_rows=size, skiprows=init), (size))
+            print(len(self.energies))
+            if len(self.energies) < size:
                 print("ERROR - requested set size exceeds the dataset size")
                 exit()
             self.coords = np.reshape(np.loadtxt(f"./{input_dir}/coords.txt",
-                max_rows=set_size * self.n_atom), (set_size, self.n_atom, 3))
+                max_rows=size*self.n_atom, skiprows=init*self.n_atom),
+                (size, self.n_atom, 3))
             self.forces = np.reshape(np.loadtxt(f"./{input_dir}/forces.txt",
-                max_rows=set_size * self.n_atom), (set_size, self.n_atom, 3))
+                max_rows=size*self.n_atom, skiprows=init*self.n_atom),
+                (size, self.n_atom, 3))
             self.charges = np.reshape(np.loadtxt(f"./{input_dir}/charges.txt",
-                max_rows=set_size * self.n_atom), (set_size, self.n_atom))
+                max_rows=size*self.n_atom, skiprows=init*self.n_atom),
+                (size, self.n_atom))
 
         elif format == "gau":
 
             self.coords, self.energies, self.forces, self.charges, error = \
-                gau(set_size, set_space, input_dir, self.n_atom)
+                gau(size, space, input_dir, self.n_atom)
             if error:
                 print("WARNING - some Gaussian jobs did not terminate correctly.")
                 exit()

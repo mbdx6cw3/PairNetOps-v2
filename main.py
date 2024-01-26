@@ -489,8 +489,8 @@ def main():
 
         while True:
             try:
-                size = int(input("Enter number of structures > "))
-                init = int(input("Enter the initial structure > "))
+                size = int(input("Enter total number of structures > "))
+                init = int(input("Remove first N structures (0 for none) > "))
                 space = int(input("Enter spacing between structures > "))
                 break
             except ValueError:
