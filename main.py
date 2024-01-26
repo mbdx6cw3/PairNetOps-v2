@@ -213,9 +213,9 @@ def main():
         if option_flag < 5:
             try:
                 input_type = int(input("""Type of Dataset to Analyse:
-                [1] - QM Dataset.
-                [2] - MD Dataset.
-                [3] - External Dataset.
+                [1] - ml_data (.txt)
+                [2] - md_data (.txt)
+                [3] - External.
                 > """))
                 if input_type > 3 or input_type < 1:
                     exit("Invalid Value")
@@ -475,13 +475,14 @@ def main():
         print()
 
         output_format = int(input("""Output format:
-        [1] - Gaussian (.gjf)
-        [2] - Text (.txt)
-        [3] - Gromacs (.gro)
+        [1] - qm_data (.gjf)
+        [2] - ml_data (.txt)
+        [3] - md_data (.gro)
         > """))
         print()
 
-        perm_option = str(input("Shuffle permutations? (Y/N) > "))
+        if input_format == 1 and output_format == 2:
+            perm_option = str(input("Shuffle permutations? (Y/N) > "))
 
         if input_format == output_format and perm_option != "Y":
             print("ERROR - input and output format are the same. Nothing to do.")
@@ -551,7 +552,9 @@ def main():
         elif output_format == 2:
             write_output.dataset(mol, output_dir)
         elif output_format == 3:
-            write_output.gro(mol, output_dir)
+            # TODO: change this to just take mol object as input (also in md.py)
+            write_output.gro(mol.n_atom, [2.5, 2.5, 2.5], 0.0, mol.coords,
+                mol.atom_names, output_dir, "output.gro")
 
 
 # Press the green button in the gutter to run the script.
