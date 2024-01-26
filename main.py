@@ -21,7 +21,7 @@ def main():
             [2] - Train or Test a PairNet Potential.
             [3] - Analyse an Existing Dataset.
             [4] - Generate a New Dataset.
-            [5] - Reformat an Existing Dataset
+            [5] - Reformat an Existing Dataset.
             > """))
 
         if input_flag > 5 or input_flag < 1:
@@ -478,9 +478,11 @@ def main():
         [1] - qm_data (.gjf)
         [2] - ml_data (.txt)
         [3] - md_data (.gro)
+        [4] - Protein Data Bank (.pdb)
         > """))
         print()
 
+        perm_option = "N"
         if input_format == 1 and output_format == 2:
             perm_option = str(input("Shuffle permutations? (Y/N) > "))
 
@@ -540,11 +542,16 @@ def main():
             print("Output format: .gro")
             output_dir = "md_data"
 
+        elif output_format == 4:
+            print("Output format: .pdb")
+            output_dir = "pdb_files"
+
         # check relevant output directory exists
         isExist = os.path.exists(output_dir)
         if isExist:
             shutil.rmtree(output_dir)
         os.makedirs(output_dir)
+        print("Writing dataset...")
 
         # write output
         if output_format == 1:
@@ -555,6 +562,8 @@ def main():
             # TODO: change this to just take mol object as input (also in md.py)
             write_output.gro(mol.n_atom, [2.5, 2.5, 2.5], 0.0, mol.coords,
                 mol.atom_names, output_dir, "output.gro")
+        elif output_format == 4:
+            write_output.pdb(mol, output_dir, "none")
 
 
 # Press the green button in the gutter to run the script.

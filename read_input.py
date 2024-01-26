@@ -44,14 +44,16 @@ class Dataset():
             self.n_atom = len(self.atoms)
         size = tot_size - init
         if format == "txt":
-            if np.loadtxt(f"./{input_dir}/coords.txt").shape[0]%self.n_atom != 0:
-                print("ERROR - mismatch between molecule size and dataset size.")
-                print("Check the nuclear_charges.txt file.")
-                exit()
             self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt",
                 max_rows=size, skiprows=init), (size))
-            if len(self.energies) < size:
+            if len(self.energies) < tot_size:
                 print("ERROR - requested set size exceeds the dataset size")
+                exit()
+            length_check = np.loadtxt(f"./{input_dir}/coords.txt")
+            #TODO: this can work but needs to be more robust...
+            if (length_check.shape[0]%self.n_atom) != 0:
+                print("ERROR - mismatch between molecule size and dataset size.")
+                print("Check the nuclear_charges.txt file.")
                 exit()
             self.coords = np.reshape(np.loadtxt(f"./{input_dir}/coords.txt",
                 max_rows=size*self.n_atom, skiprows=init*self.n_atom),

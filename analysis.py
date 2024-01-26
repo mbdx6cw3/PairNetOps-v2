@@ -429,7 +429,7 @@ def check_stability(mol, set_size, output_dir):
                     atom_indices[i_bond][1], r_ij, bond_dist[i_bond])
                 print("Writing .pdb file...")
                 write_output.write_pdb(mol.coords[s][:][:], "name", 1, mol.atoms,
-                    mol.atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
+                    mol.atom_names, f"./{output_dir}/mol_{s + 1}.pdb")
                 stable = False
 
     # check that there are no close contacts
@@ -443,8 +443,7 @@ def check_stability(mol, set_size, output_dir):
                     print("frame, atom i, atom j, pair dist (A)")
                     print(s, i, j, r_ij)
                     print("Writing .pdb file...")
-                    write_output.write_pdb(mol.coords[s][:][:], "name", 1, mol.atoms,
-                        mol.atom_names, f"./{output_dir}/mol_{s + 1}.pdb", "w")
+                    write_output.pdb(mol, output_dir, s)
                     stable = False
 
     if stable:
