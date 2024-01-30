@@ -213,7 +213,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, force)
             if force_field == "pair_net":
                 PE = prediction[1][0][0]
             else:
-                PE = state.getPotentialEnergy() / kilocalories_per_mole
+                PE = state.getPotentialEnergy() / kilojoule_per_mole
 
             np.savetxt(f1, coords[:n_atoms])
             np.savetxt(f2, forces[:n_atoms])
