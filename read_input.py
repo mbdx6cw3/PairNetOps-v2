@@ -46,7 +46,7 @@ class Dataset():
         if format == "txt":
             self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt",
                 max_rows=size, skiprows=init), (size))
-            if len(self.energies) < tot_size:
+            if len(self.energies) < size:
                 print("ERROR - requested set size exceeds the dataset size")
                 exit()
             length_check = np.loadtxt(f"./{input_dir}/coords.txt")

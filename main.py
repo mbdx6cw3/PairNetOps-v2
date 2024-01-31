@@ -257,13 +257,13 @@ def main():
             mol1 = read_input.Molecule()
             read_input.Dataset(mol1, size, init, space, input_dir1, "txt")
 
-            input_dir2 = "qm_data"
+            input_dir2 = "ml_data"
             isExist = os.path.exists(input_dir2)
             if not isExist:
                 print("Error - no input files in the working directory.")
                 exit()
             mol2 = read_input.Molecule()
-            read_input.Dataset(mol1, size, init, space, input_dir1, "txt")
+            read_input.Dataset(mol2, size, init, space, input_dir2, "txt")
 
         if option_flag == 1:
             print("Analyse Forces and Energies.")
@@ -350,7 +350,7 @@ def main():
                 print(f"{energy_elec} kcal/mol")
 
         elif option_flag == 5:
-            print("Compare Datasets.")
+            print("Comparing Datasets.")
 
             print("Calculating force MAE...")
             mae = 0
@@ -368,6 +368,21 @@ def main():
                           output_dir, "mm_f_scurve")
             np.savetxt(f"./{output_dir}/mm_f_test.dat", np.column_stack((
                 mol2.forces.flatten(), mol1.forces.flatten())),
+                       delimiter=", ", fmt="%.6f")
+
+            print("Calculating charge MAE...")
+            mae = 0
+            for actual, prediction in zip(mol2.charges.flatten(), mol1.charges.flatten()):
+                diff = prediction - actual
+                mae += np.sum(abs(diff))
+            mae = mae / len(mol2.charges.flatten())
+            print(f"Charge MAE: {mae}, kcal/mol/A")
+
+            print("Calculating charge S-curve...")
+            write_output.scurve(mol2.charges.flatten(), mol1.charges.flatten(),
+                                output_dir, "mm_q_scurve")
+            np.savetxt(f"./{output_dir}/mm_q_test.dat", np.column_stack((
+                mol2.charges.flatten(), mol1.charges.flatten())),
                        delimiter=", ", fmt="%.6f")
 
             print("Calculating energy correlation with QM...")
@@ -510,6 +525,10 @@ def main():
         elif input_format == 3:
             print("Input format: .txt")
             input_dir = "md_data"
+
+        else:
+            print("Error - Invalid Value")
+            exit()
 
         isExist = os.path.exists(input_dir)
         if not isExist:

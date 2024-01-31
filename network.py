@@ -305,11 +305,13 @@ class Network(object):
         # correct charge predictions so that there is zero net charge
         # TODO: this will need updating if we want to do charged species
         if charge_scheme == 1:
+            net_charge = 0
             corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
+            corr = np.zeros([len(test_output_E)])
             for s in range(len(test_output_E)):
+                corr[s] = (sum(test_prediction[2][s]) - net_charge) / mol.n_atom
                 for atm in range(mol.n_atom):
-                    corr_prediction[s][atm] = test_prediction[2][s][atm] - \
-                        (sum(test_prediction[2][s]) / mol.n_atom)
+                    corr_prediction[s][atm] = test_prediction[2][s][atm] - corr[s]
         elif charge_scheme == 2:
             corr_prediction = test_prediction[2][:][:]
 
