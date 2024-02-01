@@ -281,23 +281,23 @@ class Network(object):
         test_atoms = np.tile(atoms, (len(test_coords), 1))
         test_prediction = model.predict([test_coords, test_atoms])
         print(f"\nError summary using {len(mol.test)} test structures...")
-        print(f"                       MeanAE  |   MaxAE  | L1 (%)")
+        print(f"                       MeanAE  |   MaxAE  | L1/L0.1 (%)")
         print(f"--------------------------------------------------")
 
         # force test output
         test_output_F = np.take(mol.forces, mol.test, axis=0)
-        mean_ae, max_ae, L1 = Network.summary(self, test_output_F.flatten(),
-            test_prediction[0].flatten(), output_dir, "f")
-        print(f"F (kcal mol^-1 A^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
+        mean_ae, max_ae, L = Network.summary(self, test_output_F.flatten(),
+            test_prediction[0].flatten(), output_dir, "f", 1.0)
+        print(f"F (kcal mol^-1 A^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L:6.1f} ")
         np.savetxt(f"./{output_dir}/f_test.dat", np.column_stack((
             test_output_F.flatten(), test_prediction[0].flatten())),
             delimiter=" ", fmt="%.6f")
 
         # energy test output
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)
-        mean_ae, max_ae, L1 = Network.summary(self, test_output_E.flatten(),
-            test_prediction[1].flatten(), output_dir, "e")
-        print(f"E (kcal mol^-1)     : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
+        mean_ae, max_ae, L = Network.summary(self, test_output_E.flatten(),
+            test_prediction[1].flatten(), output_dir, "e", 1.0)
+        print(f"E (kcal mol^-1)     : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L:6.1f} ")
         np.savetxt(f"./{output_dir}/e_test.dat", np.column_stack((
             test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
@@ -317,9 +317,9 @@ class Network(object):
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)
-        mean_ae, max_ae, L1 = Network.summary(self, test_output_q.flatten(),
-            corr_prediction.flatten(), output_dir, "q")
-        print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  |   n/a ")
+        mean_ae, max_ae, L = Network.summary(self, test_output_q.flatten(),
+            corr_prediction.flatten(), output_dir, "q", 0.1)
+        print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L:6.1f} ")
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
@@ -327,9 +327,9 @@ class Network(object):
         # electrostatic energy test output
         elec_prediction = analysis.electrostatic_energy(corr_prediction, test_coords)
         test_output_elec = np.take(mol.elec_energies, mol.test, axis=0)
-        mean_ae, max_ae, L1 = Network.summary(self, test_output_elec.flatten(),
-            elec_prediction.flatten(), output_dir, "E_elec")
-        print(f"E_elec (kcal mol^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L1:6.1f} ")
+        mean_ae, max_ae, L = Network.summary(self, test_output_elec.flatten(),
+            elec_prediction.flatten(), output_dir, "E_elec", 1.0)
+        print(f"E_elec (kcal mol^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L:6.1f} ")
         np.savetxt(f"./{output_dir}/elec_test.dat", np.column_stack((
             test_output_elec.flatten(), elec_prediction.flatten())),
             delimiter=" ", fmt="%.6f")
@@ -423,7 +423,7 @@ class Network(object):
         return model
 
 
-    def summary(self, all_actual, all_prediction, output_dir, label):
+    def summary(self, all_actual, all_prediction, output_dir, label, val):
         '''Get total errors for array values.'''
         _N = np.size(all_actual)
         mean_ae = 0
@@ -434,7 +434,7 @@ class Network(object):
             if abs(diff) > max_ae:
                 max_ae = abs(diff)
         mean_ae = mean_ae / _N
-        L1 = write_output.scurve(all_actual.flatten(), all_prediction.flatten(),
-                      output_dir, f"{label}_scurve")
-        return mean_ae, max_ae, L1
+        L = write_output.scurve(all_actual.flatten(), all_prediction.flatten(),
+                      output_dir, f"{label}_scurve", val)
+        return mean_ae, max_ae, L
 

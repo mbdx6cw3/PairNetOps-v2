@@ -89,7 +89,7 @@ def pdb(mol, output_dir, s):
         file.close()
     return None
 
-def scurve(baseline, values, output_dir, output_file):
+def scurve(baseline, values, output_dir, output_file, val):
     """
     This function calculates S-curves for MM determined forces.
     Must have run qm2ml.py first to collect QM force dataset.
@@ -108,8 +108,8 @@ def scurve(baseline, values, output_dir, output_file):
         "% of forces below error", f"{output_file}", output_dir)
     np.savetxt(f"./{output_dir}/{output_file}.dat", np.column_stack((bin_edges,
         hist)), fmt='%.6f', delimiter = " ")
-    i_L1 = (np.abs(bin_edges - 1.0)).argmin()
-    return hist[i_L1]
+    i_L = (np.abs(bin_edges - val)).argmin()
+    return hist[i_L]
 
 
 def heatmap2D(x, y, z, z_max, output_dir, file, cmap, fe_map):

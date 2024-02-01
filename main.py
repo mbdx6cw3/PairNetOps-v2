@@ -365,7 +365,7 @@ def main():
 
             print("Calculating force S-curve...")
             write_output.scurve(mol2.forces.flatten(), mol1.forces.flatten(),
-                          output_dir, "mm_f_scurve")
+                          output_dir, "mm_f_scurve", 1.0)
             np.savetxt(f"./{output_dir}/mm_f_test.dat", np.column_stack((
                 mol2.forces.flatten(), mol1.forces.flatten())),
                        delimiter=", ", fmt="%.6f")
@@ -380,7 +380,7 @@ def main():
 
             print("Calculating charge S-curve...")
             write_output.scurve(mol2.charges.flatten(), mol1.charges.flatten(),
-                                output_dir, "mm_q_scurve")
+                                output_dir, "mm_q_scurve", 1.0)
             np.savetxt(f"./{output_dir}/mm_q_test.dat", np.column_stack((
                 mol2.charges.flatten(), mol1.charges.flatten())),
                        delimiter=", ", fmt="%.6f")
