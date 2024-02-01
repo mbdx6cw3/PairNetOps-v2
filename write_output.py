@@ -104,8 +104,8 @@ def scurve(baseline, values, output_dir, output_file, val):
     bin_edges = bin_edges[range(1,bin_edges.shape[0])]
     hist = hist/values.shape[0]*100
     bin_edges[0] = 0.0
-    lineplot(bin_edges, hist, "log", "Error ($kcal/mol/\AA$)",
-        "% of forces below error", f"{output_file}", output_dir)
+    lineplot(bin_edges, hist, "log", "Error", "% of forces below error",
+             f"{output_file}", output_dir)
     np.savetxt(f"./{output_dir}/{output_file}.dat", np.column_stack((bin_edges,
         hist)), fmt='%.6f', delimiter = " ")
     i_L = (np.abs(bin_edges - val)).argmin()
