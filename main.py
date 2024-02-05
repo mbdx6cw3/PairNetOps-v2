@@ -315,8 +315,6 @@ def main():
                 analysis.pop2D(mol, n_bins, CV_list, output_dir, size)
 
         elif option_flag == 4:
-            #print("get interatomic charges")
-            #analysis.get_interatomic_charges(mol)
 
             print("Analyse Charges.")
             charge_option = int(input("""
@@ -389,13 +387,13 @@ def main():
             analysis.energy_corr(mol2.energies, mol1.energies, output_dir)
 
         elif option_flag == 6:
-            print("Calculating 2D free energy surface...")
-            analysis.fes2D(input_dir, output_dir)
             input_dir = "md_data"
             isExist = os.path.exists(input_dir)
             if not isExist:
                 print("Error - no input files in the working directory.")
                 exit()
+            print("Calculating 2D free energy surface...")
+            analysis.fes2D(input_dir, output_dir)
 
     elif input_flag == 4:
         print("Generate a Dataset.")
