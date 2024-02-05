@@ -66,6 +66,9 @@ def setup(force_field, plat):
     nb_cut = nb.getCutoffDistance()
     alpha_ewald = (1.0 / nb_cut) * np.sqrt(-np.log(2.0 * ewald_tol))
 
+    if force_field == "empirical":
+        ml_force = None
+
     if force_field == "pair_net":
         # get number of atoms in the ligand
         ligand_n_atom = len(list(residues[0].atoms()))
@@ -173,6 +176,9 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     # run MD simulation for requested number of timesteps
     for i in range(n_steps):
 
+        coords = simulation.context.getState(getPositions=True). \
+            getPositions(asNumpy=True).in_units_of(angstrom)
+
         if force_field == "ani":
             charges = np.zeros(tot_n_atom)
 
@@ -180,9 +186,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             # clears session to avoid running out of memory
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
-
-            coords = simulation.context.getState(getPositions=True). \
-                getPositions(asNumpy=True).in_units_of(angstrom)
 
             # predict intramolecular ML forces
             # predict_on_batch faster with only single structure
