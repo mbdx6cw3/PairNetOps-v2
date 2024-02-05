@@ -361,6 +361,7 @@ def energy_corr(baseline, values, output_dir):
         "Rel. MD energy (kcal/mol)", "energy_error_scatter", output_dir)
     return None
 
+
 def getCVs(n_CV):
     for i_CV in range(n_CV):
         atom_indices = input(f"""

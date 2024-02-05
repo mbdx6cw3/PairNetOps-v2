@@ -62,11 +62,11 @@ def main():
         print("Running MD Simulation...")
 
         # setup simulation
-        simulation, system, output_dir, md_params, gro, force = md.setup(potential, plat)
+        simulation, system, output_dir, md_params, gro, top, ml_force = md.setup(potential, plat)
 
         # run simulation
         startTime = datetime.now()
-        md.simulate(simulation, system, potential, output_dir, md_params, gro, force)
+        md.simulate(simulation, system, potential, output_dir, md_params, gro, top, ml_force)
         print(datetime.now() - startTime)
 
     elif input_flag == 2:
