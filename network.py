@@ -270,7 +270,7 @@ class Network(object):
 
         return model
 
-    def test(self, model, mol, output_dir, ann_params):
+    def test(self, model, mol, output_dir, ann_params, conf_test):
         '''test previously trained ANN'''
 
         charge_scheme = ann_params["charge_scheme"]
@@ -292,6 +292,12 @@ class Network(object):
         np.savetxt(f"./{output_dir}/f_test.dat", np.column_stack((
             test_output_F.flatten(), test_prediction[0].flatten())),
             delimiter=" ", fmt="%.6f")
+
+        # test conformational distribution of force errors
+        if conf_test:
+            CV_list = analysis.getCVs(2)
+            analysis.error2D(test_coords, CV_list, output_dir,
+                test_output_F, test_prediction[0])
 
         # energy test output
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)

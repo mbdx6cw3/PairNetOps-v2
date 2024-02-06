@@ -272,7 +272,7 @@ def fes2D(input_dir, output_dir):
     input.close()
     x, y = np.meshgrid(np.linspace(-180, 180, n_bins_x),
                        np.linspace(-180, 180, n_bins_y))
-    write_output.heatmap2D(x, y, FE, FE.max(), output_dir, "fes_2d", "RdBu",fe_map=True)
+    write_output.heatmap2D(x, y, FE, output_dir, "fes_2d", "RdBu", 0)
     return None
 
 
@@ -291,7 +291,7 @@ def pop2D(mol, n_bins, CV_list, output_dir, set_size):
             pop[bin[1]][bin[0]] += 1
     pop = pop / (set_size)
     x, y = np.meshgrid(np.linspace(-180, 180, n_bins), np.linspace(-180, 180, n_bins))
-    write_output.heatmap2D(x, y, pop, pop.max(), output_dir, "pop_2d", "gist_heat",fe_map=False)
+    write_output.heatmap2D(x, y, pop, output_dir, "pop_2d", "gist_heat", 1)
     count = 0
     for i in range(n_bins):
         for j in range(n_bins):
@@ -609,3 +609,27 @@ def electrostatic_energy(charges, coords):
     # converts to kcal/mol
     return (elec*(1.0e10)*(6.022e23)*(1.602e-19)**2)/4.184/1000/8.854e-12
 
+
+def error2D(coords, CV_list, output_dir, ref, pred):
+    n_bins = 36
+    bin_width = 360 / n_bins
+    pop = np.zeros(shape=(n_bins, n_bins))
+    n_atom = coords.shape[1]
+    bin_tot = np.zeros(shape=(n_bins, n_bins))
+    for item in range(len(coords)):
+        bin = np.empty(shape=[CV_list.shape[0]], dtype=int)
+        for i_dih in range(CV_list.shape[0]):
+            p = np.zeros([CV_list.shape[1], 3])
+            p[0:] = coords[item][CV_list[i_dih][:]]
+            bin[i_dih] = int((dihedral(p) + 180) / bin_width)
+        for atom in range(n_atom):
+            for force in range(3):
+                pop[bin[1]][bin[0]] += 1
+                error = abs(ref[item][atom][force]-pred[item][atom][force])
+                bin_tot[bin[1]][bin[0]] += error
+    with np.errstate(divide='ignore'): #TODO: why doesnt this work?
+        bin_error = bin_tot / pop
+    x, y = np.meshgrid(np.linspace(-180, 180, n_bins),
+        np.linspace(-180, 180, n_bins))
+    write_output.heatmap2D(x, y, bin_error, output_dir, "error_2d", "cividis", 2)
+    return None

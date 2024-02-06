@@ -112,13 +112,16 @@ def scurve(baseline, values, output_dir, output_file, val):
     return hist[i_L]
 
 
-def heatmap2D(x, y, z, z_max, output_dir, file, cmap, fe_map):
+def heatmap2D(x, y, z, output_dir, file, cmap, map_type):
     fig, ax = plt.subplots()
-    if fe_map:
+    if map_type == 0:       # free energy map
         c = ax.pcolormesh(x, y, z, cmap=cmap)
-    else:
+    elif map_type == 1:     # population map
+        z_max = z.max()
         c = ax.pcolormesh(x, y, z, norm=colors.LogNorm(vmin=0.00001,vmax=z_max),
              cmap=cmap)
+    elif map_type == 2:     # force error map
+        c = ax.pcolormesh(x, y, z, cmap=cmap, vmin=0.0, vmax=1.0)
     ax.axis([x.min(), x.max(), y.min(), y.max()])
     x_label = "$\u03C6$ ($\u00b0$)"
     y_label = "$\u03C8$ ($\u00b0$)"

@@ -120,6 +120,13 @@ def main():
         else:
             ann_load = False
 
+        if option_flag == 5:
+            test_option = str(input("Test conformational distribution? (Y/N) > "))
+            if test_option == "Y":
+                conf_test = True
+            else:
+                conf_test = False
+
         # load previously trained model
         if ann_load:
             print("Loading a trained model...")
@@ -129,8 +136,6 @@ def main():
             mol.trainval = [*range(0, n_train + n_val, 1)]
             trainval_forces = np.take(mol.forces, mol.trainval, axis=0)
             trainval_energies = np.take(mol.energies, mol.trainval, axis=0)
-            # TODO: pre-scaling for charges?!
-            #trainval_charges = np.take(mol.charges, mol.trainval, axis=0)
             norm_scheme = ann_params["norm_scheme"]
             prescale = analysis.prescale_e(mol, trainval_energies,
                 trainval_forces, norm_scheme)
@@ -148,6 +153,7 @@ def main():
                 (np.array(mol.atoms)).reshape(-1, 1))
 
             # pairwise decomposition of energies
+            print("Calculating pairwise energies...")
             analysis.get_eij(mol, size, output_dir1)
 
             # build model if not training from scratch
@@ -174,10 +180,11 @@ def main():
         if ann_test:
             mol.test = [*range(n_train + n_val, size, 1)]
             if ann_load:
+                print("Calculating pairwise energies...")
                 analysis.get_eij(mol, size, output_dir1)
 
             print("Testing model...")
-            network.test(model, mol, output_dir1, ann_params)
+            network.test(model, mol, output_dir1, ann_params, conf_test)
 
     elif input_flag == 3:
         print("Analyse a Dataset")
