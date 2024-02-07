@@ -222,7 +222,6 @@ class Network(object):
 
         # ann parameters
         epochs = ann_params["epochs"]
-        loss_weights = ann_params["loss_weights"]
         init_lr = ann_params["init_lr"]
         min_lr = ann_params["min_lr"]
         lr_patience = ann_params["lr_patience"]
@@ -230,6 +229,13 @@ class Network(object):
         batch_size = ann_params["batch_size"]
         file_name=f"./{output_dir2}/best_model" # name of model
         monitor_loss="val_loss" # monitor validation loss during training
+
+        loss_weights = ann_params["loss_weights"]
+        if loss_weights == "auto":
+            tot = 4 * len(atoms) + 1
+            loss_weight = [3 * len(atoms) / tot, len(atoms) / tot, 1 / tot]
+        else:
+            loss_weight = loss_weights
 
         # keras training variables
         mc = ModelCheckpoint(file_name, monitor=monitor_loss, mode='min',
@@ -241,8 +247,8 @@ class Network(object):
 
         # define loss function
         model.compile(loss={'f': 'mse', 'e': 'mse', 'q': 'mse'},
-            loss_weights={'f': loss_weights[0], 'e': loss_weights[1], 'q':
-                          loss_weights[2]},optimizer=optimizer)
+            loss_weights={'f': loss_weight[0], 'e': loss_weight[1], 'q':
+                          loss_weight[2]},optimizer=optimizer)
 
         # print out the model here
         model.summary()

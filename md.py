@@ -229,6 +229,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             else:
                 PE = state.getPotentialEnergy() / kilojoule_per_mole
 
+            # TODO: these should be ligand atoms only
             np.savetxt(f1, coords[:tot_n_atom])
             np.savetxt(f2, forces[:tot_n_atom])
             np.savetxt(f3, velocities[:tot_n_atom])
@@ -240,6 +241,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         #TODO: extract residue name and pass to write_output.gro
         residues = list(top.topology.residues())
         if (i % print_trj) == 0:
+            # wrap coords - print velocities
             write_output.gro(tot_n_atom, vectors, time/picoseconds, coords/nanometer,
                        gro.atomNames, output_dir, "output")
 

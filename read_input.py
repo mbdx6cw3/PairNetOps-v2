@@ -172,11 +172,16 @@ def ann(input_file):
         params["n_data"] = [eval(i) for i in params["n_data"]]
     except ValueError:
         print("***ERROR: Invalid training set size")
-    try:
-        params["loss_weights"] = [eval(i) for i in params["loss_weights"]]
-    except ValueError:
-        print("***ERROR: Invalid weights")
-        exit()
+
+    if str(params["loss_weights"]).strip() != "auto":
+        try:
+            params["loss_weights"] = [eval(i) for i in params["loss_weights"]]
+        except ValueError:
+            print("***ERROR: weights incorrectly specified")
+
+        if len(params["loss_weights"]) != 3:
+            print("***WARNING - loss weights incorrectly specified. Using defaults.")
+
     try:
         params["init_lr"] = float(params["init_lr"])
     except ValueError:
