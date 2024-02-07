@@ -283,6 +283,12 @@ def md(input_file):
         print("***ERROR: Invalid printing frequency")
         exit()
 
+    params["partial_charge"] = str(params["partial_charge"]).strip()
+    accepted_strings = ["fixed", "predicted"]
+    if params["partial_charge"] not in accepted_strings:
+        print("***ERROR: charge scheme not accepted.")
+        exit()
+
     if params["minim"].strip() == "False":
         params["minim"] = False
     elif params["minim"].strip() == "True":

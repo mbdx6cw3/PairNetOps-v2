@@ -38,7 +38,7 @@ def setup(force_field, plat):
     top = GromacsTopFile(f"{input_dir}/input.top",
         periodicBoxVectors=gro.getPeriodicBoxVectors())
 
-    # TODO: set up of mixed ANI/MM system: https://github.com/openmm/openmm-ml
+    # TODO: setting up of mixed ANI/MM system: https://github.com/openmm/openmm-ml
     if force_field == "ani":
         potential = MLPotential('ani2x')
         system = potential.createSystem(top.topology)
@@ -158,7 +158,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         ligand_n_atom = len(ligand_atoms)
         mol.n_atom = ligand_n_atom
         model = network.load(mol, ann_params)
-        # zero charges on ligand
 
     simulation.reporters.append(StateDataReporter(f"./{output_dir}/openmm.csv",
         reportInterval=print_summary,step=True, time=True, potentialEnergy=True,
@@ -203,13 +202,14 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             ml_force.updateParametersInContext(simulation.context)
 
             # assign predicted charges to ML atoms
-            ligand_charges = prediction[2].T
-            nbforce = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-            for j in range(ligand_n_atom):
-                [old_charge, sigma, epsilon] = nbforce.getParticleParameters(j)
-                nbforce.setParticleParameters(j, ligand_charges[j], sigma, epsilon)
-                charges[j] = ligand_charges[j]
-            nbforce.updateParametersInContext(simulation.context)
+            if md_params["partial_charge"] == "predicted":
+                ligand_charges = prediction[2].T
+                nbforce = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+                for j in range(ligand_n_atom):
+                    [old_charge, sigma, epsilon] = nbforce.getParticleParameters(j)
+                    nbforce.setParticleParameters(j, ligand_charges[j], sigma, epsilon)
+                    charges[j] = ligand_charges[j] # TODO: units???
+                nbforce.updateParametersInContext(simulation.context)
 
         # advance trajectory one timestep
         simulation.step(1)
@@ -224,7 +224,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
                 getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 
             # predicts energies in kcal/mol
-            # TODO: update this properly?
             if force_field == "pair_net":
                 PE = prediction[1][0][0]
             else:
