@@ -158,15 +158,18 @@ def gau(mol, coords, output_dir, opt_prop, CV_list):
                 text = text_opt
             else:
                 text = text_spe
-        qm_file = open(f"./{output_dir}/mol_{item+1}.gjf", "w")
         new_text = text.replace("index", f"{item+1}")
-        print(new_text, file=qm_file)
+        coord_text = ""
         for atom in range(mol.n_atom):
-            print(f"{mol.atom_names[atom]} "
-                  f"{coords[item,atom,0]:.8f} " 
-                  f"{coords[item,atom,1]:.8f} "
-                  f"{coords[item,atom,2]:.8f}",
-                  file=qm_file)
+            coord_atom = f"{mol.atom_names[atom]} " \
+                         f"{coords[item,atom,0]:.8f} " \
+                         f"{coords[item,atom,1]:.8f} " \
+                         f"{coords[item,atom,2]:.8f} \n"
+            coord_text = coord_text + coord_atom
+        new_text = new_text.replace("COORDS", coord_text)
+        qm_file = open(f"./{output_dir}/mol_{item+1}.gjf", "w")
+        print(new_text, file=qm_file)
+
         if (item % opt_prop) == 0 and item != 0:
             print(file=qm_file)
             print(*CV_list[:], "B", file=qm_file)

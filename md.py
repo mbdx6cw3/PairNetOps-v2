@@ -57,7 +57,8 @@ def setup(force_field, plat):
     print()
     residues = list(top.topology.residues())
     print("Ligand residue name: ", residues[0].name)
-    print("Number of atoms in ligand: ", len(list(residues[0].atoms())))
+    ligand_n_atom = len(list(residues[0].atoms()))
+    print("Number of atoms in ligand: ", ligand_n_atom)
     print("Number of bonds in ligand: ", len(list(residues[0].bonds())))
 
     nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
@@ -70,8 +71,6 @@ def setup(force_field, plat):
         ml_force = None
 
     if force_field == "pair_net":
-        # get number of atoms in the ligand
-        ligand_n_atom = len(list(residues[0].atoms()))
         # set exceptions for all ligand atoms
         for i in range(ligand_n_atom):
             for j in range(i):
@@ -149,13 +148,17 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         charge, sigma, epsilon = nb.getParticleParameters(i)
         charges[i] = charge.value_in_unit(elementary_charge)
 
+    # need to get ligand_n_atom from residue instead
+    residues = list(top.topology.residues())
+    ligand_n_atom = len(list(residues[0].atoms()))
+
     if force_field == "pair_net":
         print("Loading a trained model...")
         mol = read_input.Molecule()
         network = Network(mol)
         ann_params = read_input.ann("trained_model/ann_params.txt")
-        ligand_atoms = np.loadtxt("trained_model/nuclear_charges.txt", dtype=np.float32).reshape(-1)
-        ligand_n_atom = len(ligand_atoms)
+        ligand_atoms = np.loadtxt("trained_model/nuclear_charges.txt",
+            dtype=np.float32).reshape(-1)
         mol.n_atom = ligand_n_atom
         model = network.load(mol, ann_params)
 
@@ -173,6 +176,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     f5 = open(f"./{output_dir}/charges.txt", 'w')
 
     # run MD simulation for requested number of timesteps
+    print("Performing MD simulation...")
     for i in range(n_steps):
 
         coords = simulation.context.getState(getPositions=True). \
@@ -230,16 +234,15 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
                 PE = state.getPotentialEnergy() / kilojoule_per_mole
 
             # TODO: these should be ligand atoms only
-            np.savetxt(f1, coords[:tot_n_atom])
-            np.savetxt(f2, forces[:tot_n_atom])
-            np.savetxt(f3, velocities[:tot_n_atom])
+            np.savetxt(f1, coords[:ligand_n_atom])
+            np.savetxt(f2, forces[:ligand_n_atom])
+            np.savetxt(f3, velocities[:ligand_n_atom])
             f4.write(f"{PE}\n")
-            np.savetxt(f5, charges[:tot_n_atom])
+            np.savetxt(f5, charges[:ligand_n_atom])
 
         #TODO: providing PBCs are actually applied need to wrap coords here
         #TODO: do we need to do this for coords above too?
         #TODO: extract residue name and pass to write_output.gro
-        residues = list(top.topology.residues())
         if (i % print_trj) == 0:
             # wrap coords - print velocities
             write_output.gro(tot_n_atom, vectors, time/picoseconds, coords/nanometer,

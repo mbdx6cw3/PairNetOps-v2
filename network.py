@@ -232,8 +232,8 @@ class Network(object):
 
         loss_weights = ann_params["loss_weights"]
         if loss_weights == "auto":
-            tot = 4 * len(atoms) + 1
-            loss_weight = [3 * len(atoms) / tot, len(atoms) / tot, 1 / tot]
+            tot = 4 * mol.n_atom + 1
+            loss_weight = [3 * mol.n_atom / tot, mol.n_atom / tot, 1 / tot]
         else:
             loss_weight = loss_weights
 
