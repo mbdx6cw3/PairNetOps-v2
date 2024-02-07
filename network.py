@@ -314,21 +314,21 @@ class Network(object):
             test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
 
-        # correct charge predictions so that there is zero net charge
-        # TODO: this will need updating if we want to do charged species
+        # charge test output
+        test_output_q = np.take(mol.charges, mol.test, axis=0)
         if charge_scheme == 1:
-            net_charge = 0
+            # get net charge from first structure
+            net_charge = np.sum(test_output_q, axis=1)
             corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
             corr = np.zeros([len(test_output_E)])
             for s in range(len(test_output_E)):
-                corr[s] = (sum(test_prediction[2][s]) - net_charge) / mol.n_atom
+                corr[s] = (sum(test_prediction[2][s]) - net_charge[0]) / mol.n_atom
                 for atm in range(mol.n_atom):
                     corr_prediction[s][atm] = test_prediction[2][s][atm] - corr[s]
         elif charge_scheme == 2:
             corr_prediction = test_prediction[2][:][:]
 
         # charge test output
-        test_output_q = np.take(mol.charges, mol.test, axis=0)
         mean_ae, max_ae, L = Network.summary(self, test_output_q.flatten(),
             corr_prediction.flatten(), output_dir, "q", 0.1)
         print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L:6.1f} ")
