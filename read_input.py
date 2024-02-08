@@ -312,20 +312,20 @@ def gau(set_size, set_space, input_dir, n_atom):
     coords = np.empty(shape=[set_size, n_atom, 3])
     forces = np.empty(shape=[set_size, n_atom, 3])
     charges = np.empty(shape=[set_size, n_atom])
-    normal_term = np.empty(shape=[set_size], dtype=bool)
+    error_term = np.empty(shape=[set_size], dtype=bool)
     error = False
 
     # loop over all Gaussian files, extract energies, forces and coordinates
     for i_file in range(set_size):
         if ((i_file) % set_space) == 0:
-            normal_term[i_file] = False
+            error_term[i_file] = False
             qm_file = open(f"./{input_dir}/mol_{i_file+1}.out", "r")
             for line in qm_file:
                 # extract atomic coordinates
                 if "Input orientation:" in line:
                     coord_block = list(islice(qm_file, 4+n_atom))[-n_atom:]
                 # extract energies, convert to kcal/mol
-                if "SCF Done:" in line:
+                if "SCF Done:  E(RB3LYP) =" in line:
                     energies[i_file] = (float(line.split()[4]))*627.509608
                 # extract forces
                 if "Axes restored to original set" in line:
@@ -334,8 +334,8 @@ def gau(set_size, set_space, input_dir, n_atom):
                 if "ESP charges:" in line:
                     charge_block = list(islice(qm_file, 1+n_atom))[-n_atom:]
                 # assess termination state
-                if "Normal termination of Gaussian 09" in line:
-                    normal_term[i_file] = True
+                if "Error termination" in line:
+                    error_term[i_file] = True
                     break
 
             # read atomic coordinates
@@ -351,7 +351,7 @@ def gau(set_size, set_space, input_dir, n_atom):
             for i_atom, atom, in enumerate(charge_block):
                 charges[i_file, i_atom] = atom.strip('\n').split()[-1]
 
-            if not normal_term[i_file]:
+            if error_term[i_file]:
                 error = True
                 print(error)
 
