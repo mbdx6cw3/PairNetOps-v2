@@ -168,7 +168,7 @@ def gau(mol, coords, output_dir, opt_prop, CV_list):
         opt_prop = 10000000
 
     # create QM input files
-    for item in range(len(mol.coords)):
+    for item in range(len(coords)):
         if item == 0:
             text = text_spe
         else:

@@ -223,7 +223,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             time = simulation.context.getState().getTime()
             state = simulation.context.getState(getEnergy=True)
             vels = simulation.context.getState(getVelocities=True).\
-                getVelocities(asNumpy=True) #TODO: in units of?
+                getVelocities(asNumpy=True).in_units_of(angstrom / picosecond)
             forces = simulation.context.getState(getForces=True). \
                 getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 

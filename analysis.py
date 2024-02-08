@@ -429,8 +429,7 @@ def check_stability(mol, set_size, output_dir):
                 print(s, i_bond, atom_indices[i_bond][0],
                     atom_indices[i_bond][1], r_ij, bond_dist[i_bond])
                 print("Writing .pdb file...")
-                write_output.write_pdb(mol.coords[s][:][:], "name", 1, mol.atoms,
-                    mol.atom_names, f"./{output_dir}/mol_{s + 1}.pdb")
+                write_output.pdb(mol, output_dir, s)
                 stable = False
 
     # check that there are no close contacts
@@ -460,7 +459,6 @@ def permute(mol, n_perm_grp, perm_atm, n_symm, n_symm_atm):
         # loop through symmetry groups
         for i_perm in range(n_perm_grp):
             # perform 10 swap moves for this symmetry group
-            # TODO: this should not always be 10, otherwise a symmetry of 2 will always end up with the same input
             for i_swap in range(10):
                 # for this permutation randomly select a symmetry group
                 old_perm = perm_atm[i_perm][random.randint(0,n_symm[i_perm]-1)][:]
@@ -484,7 +482,7 @@ def permute(mol, n_perm_grp, perm_atm, n_symm, n_symm_atm):
 def rotate_dihedral(mol, CV_list):
 
     atom_indices = input(f"""
-         Enter atom indices to rotate:
+         Enter indices of atoms to rotate:
          e.g. "6 10 11"
          Consult mapping.dat for connectivity.
          > """)
@@ -493,11 +491,13 @@ def rotate_dihedral(mol, CV_list):
     spacing = int(input("Enter the rotation interval (degrees) > "))
     set_size = int(360 / spacing)
     CV = np.empty(shape=[set_size])
-    p = np.zeros([len(CV_list), 3])
+    p = np.zeros([CV_list.shape[1], 3])
+    p[0:] = mol.coords[0][CV_list[:]]
     CV[0] = dihedral(p)
     print(f"Initial torsion angle = {CV[0]:.1f} degrees")
 
     axis = (p[2] - p[1]) / np.linalg.norm(p[2] - p[1])
+    new_coords = np.zeros((set_size, mol.n_atom, 3))
     # loop through all structures
     for i_angle in range(1, set_size):
         # determine rotation angle for this structure (radians)
@@ -508,10 +508,10 @@ def rotate_dihedral(mol, CV_list):
         # loop through atoms to be rotated
         for i_atm in range(len(rot_list)):
             # shift to new origin
-            old_coord = mol.coords[0][rot_list[i_atm]][:] - mol.coord[0][CV_list[2]][:]
+            old_coords = mol.coords[0][rot_list[i_atm]][:] - mol.coords[0][CV_list[0][2]][:]
             # rotate old coordinates using rotation matrix and shift to old origin
             new_coords[i_angle][rot_list[i_atm]][:] = \
-                np.matmul(mat_rot, old_coord) + mol.coords[0][CV_list[2]][:]
+                np.matmul(mat_rot, old_coords) + mol.coords[0][CV_list[0][2]][:]
 
     return new_coords
 

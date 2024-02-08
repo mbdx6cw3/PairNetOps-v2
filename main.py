@@ -120,6 +120,7 @@ def main():
         else:
             ann_load = False
 
+        conf_test = False
         if option_flag == 5:
             test_option = str(input("Test conformational distribution? (Y/N) > "))
             if test_option == "Y":
@@ -208,8 +209,8 @@ def main():
             while True:
                 try:
                     size = int(input("Enter number of structures > "))
-                    #init = int(input("Enter the initial structure > "))
                     init = 0
+                    #init = int(input("Enter the initial structure > "))
                     #space = int(input("Enter spacing between structures > "))
                     space = 1
                     print()
@@ -222,7 +223,8 @@ def main():
                 input_type = int(input("""Type of Dataset to Analyse:
                 [1] - ml_data (.txt)
                 [2] - md_data (.txt)
-                [3] - External.
+                [3] - qm_data (.out)
+                [4] - External.
                 > """))
                 if input_type > 3 or input_type < 1:
                     exit("Invalid Value")
@@ -250,6 +252,15 @@ def main():
                 read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
             elif input_type == 3:
+                input_dir = "qm_data"
+                isExist = os.path.exists(input_dir)
+                if not isExist:
+                    print("Error - no input files in the working directory")
+                    exit()
+                mol = read_input.Molecule()
+                read_input.Dataset(mol, size, init, space, input_dir, "gau")
+
+            elif input_type == 4:
                 input_dir = "/Users/user/datasets"
                 mol = read_input.Molecule()
                 read_input.Dataset(mol, size, init, space, input_dir, "ext")
@@ -356,7 +367,6 @@ def main():
 
         elif option_flag == 5:
             print("Comparing Datasets.")
-
             print("Calculating force MAE...")
             mae = 0
             for actual, prediction in zip(mol2.forces.flatten(), mol1.forces.flatten()):
@@ -403,7 +413,6 @@ def main():
             analysis.fes2D(input_dir, output_dir)
 
     elif input_flag == 4:
-        print("Generate a Dataset.")
         option_flag = int(input("""Generate a New Dataset...
              [1] - ...by Dihedral Rotation.
              [2] - ...by Structure Selection using Index List.
@@ -412,27 +421,56 @@ def main():
 
         if option_flag == 1:
             print("Generate a New Dataset by Dihedral Rotation.")
-            size, init, space, opt_prop = 1
 
-            print("Input format: Gaussian (.out)")
-            print("Output format: Gaussian (.gjf)")
+            input_format = int(input("""Input format:
+            [1] - qm_data (.out)
+            [2] - ml_data (.txt)
+            [3] - md_data (.txt)
+            > """))
+            print()
 
-            input_dir = "qm_data"
+            if input_format == 1:
+                print("Input format: .out")
+                input_dir = "qm_data"
+
+            elif input_format == 2:
+                print("Input format: .txt")
+                input_dir = "ml_data"
+
+            elif input_format == 3:
+                print("Input format: .txt")
+                input_dir = "md_data"
+
+            else:
+                print("Error - Invalid Value")
+                exit()
+
             isExist = os.path.exists(input_dir)
             if not isExist:
-                print("ERROR - no input files in the working directory.")
+                print("Error - no input files in the working directory.")
                 exit()
-            output_dir = input_dir
 
+            # read input
             mol = read_input.Molecule()
-            read_input.Dataset(mol, size, init, space, input_dir, "gau")
+            size = 1
+            init = 0
+            space = 1
+            print("Using first structure only...")
+            if input_format == 1:
+                read_input.Dataset(mol, size, init, space, input_dir, "gau")
 
-            CV_list = analysis.getCVs()
-            if len(CV_list) > 1:
-                print("ERROR - number of collective variables cannot be > 1")
-                exit()
+            elif input_format == 2 or input_format == 3:
+                read_input.Dataset(mol, size, init, space, input_dir, "txt")
+
+            CV_list = analysis.getCVs(1)
 
             new_coords = analysis.rotate_dihedral(mol, CV_list)
+            opt_prop = 1
+            output_dir = "qm_data"
+            isExist = os.path.exists(output_dir)
+            if not isExist:
+                os.makedirs(output_dir)
+            print("Writing dataset...")
             write_output.gau(mol, new_coords, output_dir, opt_prop, CV_list)
 
         elif option_flag == 2:
@@ -497,8 +535,8 @@ def main():
         output_format = int(input("""Output format:
         [1] - qm_data (.gjf)
         [2] - ml_data (.txt)
-        [3] - md_data (.gro)
-        [4] - Protein Data Bank (.pdb)
+        [3] - gro_files (.gro)
+        [4] - pdb_files (.pdb)
         > """))
         print()
 
@@ -506,15 +544,12 @@ def main():
         if input_format == 1 and output_format == 2:
             perm_option = str(input("Shuffle permutations? (Y/N) > "))
 
-        if input_format == output_format and perm_option != "Y":
-            print("ERROR - input and output format are the same. Nothing to do.")
-            exit()
-
         while True:
             try:
                 size = int(input("Enter total number of structures > "))
                 init = int(input("Remove first N structures (0 for none) > "))
-                space = int(input("Enter spacing between structures > "))
+                space = 1 # TODO: implement this
+                #space = int(input("Enter spacing between structures > "))
                 break
             except ValueError:
                 print("Invalid Value")
@@ -564,7 +599,7 @@ def main():
 
         elif output_format == 3:
             print("Output format: .gro")
-            output_dir = "md_data"
+            output_dir = "gro_files"
 
         elif output_format == 4:
             print("Output format: .pdb")
