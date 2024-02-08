@@ -101,7 +101,7 @@ def setup(force_field, plat):
             # TODO: what is the difference between picoseconds and picosecond?
 
     # define biasing potentials
-    # TODO: there is a problem here - it seems ANI is incompatible with bias. Why?
+    # TODO: Why is ANI incompatible with bias?
     if bias:
         plumed_file = open(f"{input_dir}/plumed.dat", "r")
         plumed_script = plumed_file.read()
@@ -140,7 +140,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     print_data = md_params["print_data"]
     print_summary = md_params["print_summary"]
     tot_n_atom = len(gro.getPositions())
-    vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
 
     charges = np.zeros(tot_n_atom)
     nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
@@ -176,6 +175,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     f5 = open(f"./{output_dir}/charges.txt", 'w')
 
     # run MD simulation for requested number of timesteps
+    print()
     print("Performing MD simulation...")
     for i in range(n_steps):
 
@@ -222,8 +222,8 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         if (i % print_data) == 0 or i == 0:
             time = simulation.context.getState().getTime()
             state = simulation.context.getState(getEnergy=True)
-            velocities = simulation.context.getState(getVelocities=True).\
-                getVelocities(asNumpy=True)
+            vels = simulation.context.getState(getVelocities=True).\
+                getVelocities(asNumpy=True) #TODO: in units of?
             forces = simulation.context.getState(getForces=True). \
                 getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 
@@ -233,20 +233,20 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             else:
                 PE = state.getPotentialEnergy() / kilojoule_per_mole
 
-            # TODO: these should be ligand atoms only
             np.savetxt(f1, coords[:ligand_n_atom])
             np.savetxt(f2, forces[:ligand_n_atom])
-            np.savetxt(f3, velocities[:ligand_n_atom])
+            np.savetxt(f3, vels[:ligand_n_atom])
             f4.write(f"{PE}\n")
             np.savetxt(f5, charges[:ligand_n_atom])
 
-        #TODO: providing PBCs are actually applied need to wrap coords here
-        #TODO: do we need to do this for coords above too?
-        #TODO: extract residue name and pass to write_output.gro
         if (i % print_trj) == 0:
-            # wrap coords - print velocities
-            write_output.gro(tot_n_atom, vectors, time/picoseconds, coords/nanometer,
-                       gro.atomNames, output_dir, "output")
+            # TODO: wrap coordinates???
+            coords = coords/nanometer
+            time = time/picosecond
+            vels = vels*picosecond/nanometer
+            vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
+            write_output.gro(tot_n_atom, residues, vectors, time,
+                coords, vels, gro.atomNames, output_dir, "output")
 
     f1.close()
     f2.close()

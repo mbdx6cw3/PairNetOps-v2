@@ -40,10 +40,8 @@ def scatterplot(x, y, type, x_label, y_label, title, output_dir):
     plt.savefig(f"./{output_dir}/{title}.png")
     return None
 
-def gro(n_atom, vectors, time, coords, atom_names, output_dir, file_name):
+def gro(n_atom, res, vecs, time, coords, vels, atom_names, output_dir, file_name):
 
-    #time = 0.0
-    #vectors = [2.5, 2.5, 2.5]
     if time == 0.0:
         open_type = "w"
     else:
@@ -51,14 +49,16 @@ def gro(n_atom, vectors, time, coords, atom_names, output_dir, file_name):
     gro_file = open(f"{output_dir}/{file_name}.gro", open_type)
     gro_file.write(f"output t={time} ps\n")
     gro_file.write(f"{n_atom}\n")
-    for atom in range(n_atom):
-        x = coords[atom][0]
-        y = coords[atom][1]
-        z = coords[atom][2]
-        gro_file.write("{:>8} {:>6} {:4} {:7.3f} {:7.3f} {:7.3f}\n".
-                       format("1MOL", atom_names[atom], atom+1, x, y, z))
-    gro_file.write("{:10.5f} {:10.5f} {:10.5f}\n".
-                   format(vectors[0],vectors[1],vectors[2]))
+    count = -1
+    for i_res in range(len(res)):
+        for i_atm in range(len(list(res[i_res].atoms()))):
+            count += 1
+            gro_file.write(f"{i_res+1:>5}{res[i_res].name:3} "
+                f"{atom_names[count]:>6} {count:>4} "
+                f"{coords[count][0]:7.3f} {coords[count][1]:7.3f} "
+                f"{coords[count][2]:7.3f} {vels[count][0]:7.3f} "
+                f"{vels[count][1]:7.3f} {vels[count][2]:7.3f}\n")
+    gro_file.write(f"{vecs[0]:10.5f}{vecs[0]:10.5f}{vecs[0]:10.5f}\n")
     gro_file.close()
 
     return None
