@@ -245,7 +245,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             time = time/picosecond
             vels = vels*picosecond/nanometer
             vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
-            write_output.gro(tot_n_atom, residues, vectors, time,
+            write_output.grotrj(tot_n_atom, residues, vectors, time,
                 coords, vels, gro.atomNames, output_dir, "output")
 
     f1.close()

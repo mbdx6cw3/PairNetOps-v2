@@ -583,9 +583,7 @@ def main():
         elif output_format == 2:
             write_output.dataset(mol, output_dir)
         elif output_format == 3:
-            # TODO: change this to just take mol object as input (also in md.py)
-            write_output.gro(mol.n_atom, [2.5, 2.5, 2.5], 0.0, mol.coords,
-                mol.atom_names, output_dir, "output.gro")
+            write_output.gro(mol, output_dir)
         elif output_format == 4:
             write_output.pdb(mol, output_dir, "none")
 
