@@ -152,30 +152,20 @@ def heatmap2D(x, y, z, output_dir, file, cmap, map_type):
     return None
 
 
-def gau(mol, coords, output_dir, opt_prop, CV_list):
-
-    # read input text section
-    gaussian_spe = open(f"./gaussian_spe.txt", "r")
-    text_spe = gaussian_spe.read().strip('\n')
+def gau(mol, coords, output_dir, opt, CV_list):
 
     # if optimisations requested we also need to read in opt text sections
-    if opt_prop != 0:
+    if opt:
         gaussian_opt = open(f"./gaussian_opt.txt", "r")
-        text_opt = gaussian_opt.read().strip('\n')
-        opt_prop = int(100/opt_prop)
+        text = gaussian_opt.read().strip('\n')
         CV_list = [i + 1 for i in CV_list]
     else:
-        opt_prop = 10000000
+        # read input text section
+        gaussian_spe = open(f"./gaussian_spe.txt", "r")
+        text = gaussian_spe.read().strip('\n')
 
     # create QM input files
     for item in range(len(coords)):
-        if item == 0:
-            text = text_spe
-        else:
-            if (item % opt_prop) == 0:
-                text = text_opt
-            else:
-                text = text_spe
         new_text = text.replace("index", f"{item+1}")
         coord_text = ""
         for atom in range(mol.n_atom):
@@ -188,8 +178,7 @@ def gau(mol, coords, output_dir, opt_prop, CV_list):
         qm_file = open(f"./{output_dir}/mol_{item+1}.gjf", "w")
         print(new_text, file=qm_file)
 
-        if (item % opt_prop) == 0 and item != 0:
-            print(file=qm_file)
+        if opt:
             print(*CV_list[:], "B", file=qm_file)
             print(*CV_list[:], "F", file=qm_file)
         print(file=qm_file)

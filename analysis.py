@@ -491,15 +491,16 @@ def rotate_dihedral(mol, CV_list):
     spacing = int(input("Enter the rotation interval (degrees) > "))
     set_size = int(360 / spacing)
     CV = np.empty(shape=[set_size])
-    p = np.zeros([CV_list.shape[1], 3])
+    p = np.zeros([len(CV_list), 3])
     p[0:] = mol.coords[0][CV_list[:]]
     CV[0] = dihedral(p)
     print(f"Initial torsion angle = {CV[0]:.1f} degrees")
-
     axis = (p[2] - p[1]) / np.linalg.norm(p[2] - p[1])
-    new_coords = np.zeros((set_size, mol.n_atom, 3))
+
+    coord = np.empty(shape=[set_size, mol.n_atom, 3])
     # loop through all structures
     for i_angle in range(1, set_size):
+        coord[i_angle] = mol.coords[0]
         # determine rotation angle for this structure (radians)
         # add option to do reverse scan (times by -1)
         angle = (i_angle * spacing) * np.pi / 180
@@ -508,12 +509,11 @@ def rotate_dihedral(mol, CV_list):
         # loop through atoms to be rotated
         for i_atm in range(len(rot_list)):
             # shift to new origin
-            old_coords = mol.coords[0][rot_list[i_atm]][:] - mol.coords[0][CV_list[0][2]][:]
+            old_coords = coord[i_angle][rot_list[i_atm]][:] - coord[i_angle][CV_list[2]][:]
             # rotate old coordinates using rotation matrix and shift to old origin
-            new_coords[i_angle][rot_list[i_atm]][:] = \
-                np.matmul(mat_rot, old_coords) + mol.coords[0][CV_list[0][2]][:]
+            coord[i_angle][rot_list[i_atm]][:] = np.matmul(mat_rot, old_coords) + coord[i_angle][CV_list[2]][:]
 
-    return new_coords
+    return coord
 
 def generate_rotation_matrix(angle, axis):
     #https://en.wikipedia.org/wiki/Rotation_matrix

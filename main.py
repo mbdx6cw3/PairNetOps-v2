@@ -464,14 +464,13 @@ def main():
 
             CV_list = analysis.getCVs(1)
 
-            new_coords = analysis.rotate_dihedral(mol, CV_list)
-            opt_prop = 1
+            new_coords = analysis.rotate_dihedral(mol, CV_list[0])
             output_dir = "qm_data"
             isExist = os.path.exists(output_dir)
             if not isExist:
                 os.makedirs(output_dir)
             print("Writing dataset...")
-            write_output.gau(mol, new_coords, output_dir, opt_prop, CV_list)
+            write_output.gau(mol, new_coords, output_dir, True, CV_list[0])
 
         elif option_flag == 2:
             print("Generate a New Dataset by Structure Selection using Index List.")
@@ -614,7 +613,7 @@ def main():
 
         # write output
         if output_format == 1:
-            write_output.gau(mol, mol.coords, output_dir, 0, 0)
+            write_output.gau(mol, mol.coords, output_dir, False, 0)
         elif output_format == 2:
             write_output.dataset(mol, output_dir)
         elif output_format == 3:
