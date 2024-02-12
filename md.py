@@ -175,7 +175,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     f5 = open(f"./{output_dir}/charges.txt", 'w')
 
     # run MD simulation for requested number of timesteps
-    print()
     print("Performing MD simulation...")
     for i in range(n_steps):
 
@@ -220,10 +219,10 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
 
         # print output
         if (i % print_data) == 0 or i == 0:
-            time = simulation.context.getState().getTime()
+            time = simulation.context.getState().getTime().in_units_of(picoseconds)
             state = simulation.context.getState(getEnergy=True)
             vels = simulation.context.getState(getVelocities=True).\
-                getVelocities(asNumpy=True).in_units_of(angstrom / picosecond)
+                getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
             forces = simulation.context.getState(getForces=True). \
                 getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 
@@ -240,10 +239,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             np.savetxt(f5, charges[:ligand_n_atom])
 
         if (i % print_trj) == 0:
-            # TODO: wrap coordinates???
-            coords = coords/nanometer
-            time = time/picosecond
-            vels = vels*picosecond/nanometer
+            coords = coords / nanometer
             vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
             write_output.grotrj(tot_n_atom, residues, vectors, time,
                 coords, vels, gro.atomNames, output_dir, "output")

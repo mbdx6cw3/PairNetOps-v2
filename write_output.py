@@ -44,7 +44,7 @@ def grotrj(n_atom, res, vecs, time, coords, vels, atom_names, output_dir, file_n
     else:
         open_type = "a"
     gro_file = open(f"{output_dir}/{file_name}.gro", open_type)
-    gro_file.write(f"output t={time} ps\n")
+    gro_file.write(f"output t={time}\n")
     gro_file.write(f"{n_atom}\n")
     count = -1
     for i_res in range(len(res)):
