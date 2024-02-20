@@ -164,6 +164,7 @@ class Q(Layer):
         # calculate corrected charges by subtracting net charge from all predicted charges
         if self.charge_scheme == 1: # training on uncorrected charges
             new_q = old_q
+        '''
         elif self.charge_scheme == 2: # training on corrected charges
             sum_q = tf.reduce_sum(old_q) / self.n_atoms
             new_q = old_q - sum_q
@@ -176,6 +177,7 @@ class Q(Layer):
             pass
         #K.print_tensor(old_q[0], message="pred_q = ")
         #K.print_tensor(new_q[0], message="corr_q = ")
+        '''
         return new_q
 
 
@@ -245,6 +247,7 @@ class Network(object):
         optimizer = Adam(learning_rate=init_lr,
                 beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
 
+
         # define loss function
         model.compile(loss={'f': 'mse', 'e': 'mse', 'q': 'mse'},
             loss_weights={'f': loss_weight[0], 'e': loss_weight[1], 'q':
@@ -287,7 +290,7 @@ class Network(object):
         test_atoms = np.tile(atoms, (len(test_coords), 1))
         test_prediction = model.predict([test_coords, test_atoms])
         print(f"\nError summary using {len(mol.test)} test structures...")
-        print(f"                       MeanAE  |   MaxAE  | L1/L0.1 (%)")
+        print(f"                       MeanAE  |   MaxAE  | L1/L0.01 (%)")
         print(f"--------------------------------------------------")
 
         # force test output
@@ -330,7 +333,7 @@ class Network(object):
 
         # charge test output
         mean_ae, max_ae, L = Network.summary(self, test_output_q.flatten(),
-            corr_prediction.flatten(), output_dir, "q", 0.1)
+            corr_prediction.flatten(), output_dir, "q", 0.01)
         print(f"Q (e)               : {mean_ae:7.4f}  | {max_ae:7.4f}  | {L:6.1f} ")
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
@@ -424,7 +427,6 @@ class Network(object):
                 (output_layer1)
             pass
             # TODO: charge pairs will have to take output_layer1 as input.
-
 
         # define the input layers and output layers used in the loss function
         model = Model(
