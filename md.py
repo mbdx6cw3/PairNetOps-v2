@@ -205,6 +205,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             ml_force.updateParametersInContext(simulation.context)
 
             # assign predicted charges to ML atoms
+            # TODO: we surely don't need to do this on every step?
             if md_params["partial_charge"] == "predicted":
                 ligand_charges = prediction[2].T
                 nbforce = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]

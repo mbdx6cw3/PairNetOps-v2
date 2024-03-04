@@ -2,8 +2,11 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
 
-plt.rcParams["font.size"] = 12
+plt.rcParams["font.size"] = 32
+plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams['mathtext.fontset'] = 'custom'
+plt.rcParams['mathtext.it'] = 'Times New Roman' #italic?
+plt.rcParams['mathtext.rm'] = 'Times New Roman'
 
 def lineplot(x, y, type, x_label, y_label, title, output_dir):
     fig, ax = plt.subplots()

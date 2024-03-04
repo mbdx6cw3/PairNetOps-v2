@@ -164,10 +164,10 @@ class Q(Layer):
         # calculate corrected charges by subtracting net charge from all predicted charges
         if self.charge_scheme == 1: # training on uncorrected charges
             new_q = old_q
-        '''
         elif self.charge_scheme == 2: # training on corrected charges
             sum_q = tf.reduce_sum(old_q) / self.n_atoms
             new_q = old_q - sum_q
+        '''
         elif self.charge_scheme == 3: # training on "interatomic charges"
             # recompose charges here (see analysis.getrecomposedcharges)
             pass
@@ -319,17 +319,16 @@ class Network(object):
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)
-        if charge_scheme == 1:
-            # get net charge from first structure
-            net_charge = np.sum(test_output_q, axis=1)
-            corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
-            corr = np.zeros([len(test_output_E)])
-            for s in range(len(test_output_E)):
-                corr[s] = (sum(test_prediction[2][s]) - net_charge[0]) / mol.n_atom
-                for atm in range(mol.n_atom):
-                    corr_prediction[s][atm] = test_prediction[2][s][atm] - corr[s]
-        elif charge_scheme == 2:
-            corr_prediction = test_prediction[2][:][:]
+        #if charge_scheme == 1:
+            # get net charge from first reference structure
+        net_charge = np.sum(test_output_q, axis=1)
+        corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
+        corr = np.zeros([len(test_output_E)])
+        # calculate predicted net charge of each test structure
+        for s in range(len(test_output_E)):
+            corr[s] = (sum(test_prediction[2][s]) - net_charge[0]) / mol.n_atom
+            for atm in range(mol.n_atom):
+                corr_prediction[s][atm] = test_prediction[2][s][atm] - corr[s]
 
         # charge test output
         mean_ae, max_ae, L = Network.summary(self, test_output_q.flatten(),
@@ -338,6 +337,11 @@ class Network(object):
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
+        for s in range(len(test_output_E)):
+            for atm in range(mol.n_atom):
+                error = abs(test_output_q[s][atm] - corr_prediction[s][atm])
+                if error > 0.25:
+                    print(s,atm,test_output_q[s][atm],net_charge[0])
 
         # electrostatic energy test output
         elec_prediction = analysis.electrostatic_energy(corr_prediction, test_coords)
@@ -419,13 +423,12 @@ class Network(object):
 
         # predict partial charges
         # TODO: move charge_scheme options into function
-        if charge_scheme == 0 or charge_scheme == 1:
+        if charge_scheme == 1:
             charge = Q(n_atoms, n_pairs, charge_scheme, name='charge')\
                 (output_layer2)
         elif charge_scheme == 2:
             charge = Q(n_atoms, n_pairs, charge_scheme, name ='charge')\
-                (output_layer1)
-            pass
+                (output_layer2)
             # TODO: charge pairs will have to take output_layer1 as input.
 
         # define the input layers and output layers used in the loss function
