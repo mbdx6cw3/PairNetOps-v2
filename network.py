@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import numpy as np
-import write_output, os, analysis
+import write_output, os, analysis, read_input
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model
@@ -185,12 +185,8 @@ class Network(object):
     def __init__(self, molecule):
         self.model = None
 
-    def load(self, mol, ann_params):
-        input_dir = "trained_model"
-        isExist = os.path.exists(input_dir)
-        if not isExist:
-            print("ERROR - previously trained model could not be located.")
-            exit()
+    def load(self, mol, input_dir):
+        ann_params = read_input.ann(f"{input_dir}/ann_params.txt")
         prescale = np.loadtxt(f"./{input_dir}/prescale.txt", dtype=np.float64).reshape(-1)
         model = Network.build(self, mol, ann_params, prescale)
         model.summary()
@@ -319,8 +315,7 @@ class Network(object):
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)
-        #if charge_scheme == 1:
-            # get net charge from first reference structure
+        # get net charge from first reference structure
         net_charge = np.sum(test_output_q, axis=1)
         corr_prediction = np.zeros((len(test_output_E),mol.n_atom),dtype=float)
         corr = np.zeros([len(test_output_E)])
@@ -337,11 +332,11 @@ class Network(object):
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
-        for s in range(len(test_output_E)):
-            for atm in range(mol.n_atom):
-                error = abs(test_output_q[s][atm] - corr_prediction[s][atm])
-                if error > 0.25:
-                    print(s,atm,test_output_q[s][atm],net_charge[0])
+        #for s in range(len(test_output_E)):
+        #    for atm in range(mol.n_atom):
+        #        error = abs(test_output_q[s][atm] - corr_prediction[s][atm])
+        #        if error > 0.25:
+        #            print(s,atm,test_output_q[s][atm],net_charge[0])
 
         # electrostatic energy test output
         elec_prediction = analysis.electrostatic_energy(corr_prediction, test_coords)

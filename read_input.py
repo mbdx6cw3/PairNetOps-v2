@@ -289,10 +289,12 @@ def md(input_file):
         exit()
 
     params["partial_charge"] = str(params["partial_charge"]).strip()
-    accepted_strings = ["fixed", "predicted"]
+    accepted_strings = ["fixed", "predicted", "predicted-sep"]
     if params["partial_charge"] not in accepted_strings:
         print("***ERROR: charge scheme not accepted.")
         exit()
+
+    params["net_charge"] = float(params["net_charge"])
 
     if params["minim"].strip() == "False":
         params["minim"] = False

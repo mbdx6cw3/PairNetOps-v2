@@ -152,14 +152,34 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     ligand_n_atom = len(list(residues[0].atoms()))
 
     if force_field == "pair_net":
-        print("Loading a trained model...")
         mol = read_input.Molecule()
         network = Network(mol)
-        ann_params = read_input.ann("trained_model/ann_params.txt")
-        ligand_atoms = np.loadtxt("trained_model/nuclear_charges.txt",
-            dtype=np.float32).reshape(-1)
-        mol.n_atom = ligand_n_atom
-        model = network.load(mol, ann_params)
+        print("Loading a trained model...")
+        input_dir = "trained_model"
+        isExist = os.path.exists(input_dir)
+        if not isExist:
+            print("ERROR - previously trained model could not be located.")
+            exit()
+        ligand_atoms = np.loadtxt(f"{input_dir}/nuclear_charges.txt", dtype=np.float32).reshape(-1)
+        if len(ligand_atoms) != ligand_n_atom:
+            print("ERROR - number of atoms in trained network is incompatible with number of atoms in topology")
+            exit()
+        mol.n_atom = len(ligand_atoms)
+        model = network.load(mol, input_dir)
+
+        # if charges are being predicted enforce ligand net charge
+        if md_params["partial_charge"] != "fixed":
+            net_charge = md_params["net_charge"]
+
+        # load separate network for charge prediction
+        if md_params["partial_charge"] == "predicted-sep":
+            print("Loading a trained charge model...")
+            input_dir = "trained_charge_model"
+            isExist = os.path.exists(input_dir)
+            if not isExist:
+                print("ERROR - previously trained model could not be located.")
+                exit()
+            charge_model = network.load(mol, input_dir)
 
     simulation.reporters.append(StateDataReporter(f"./{output_dir}/openmm.csv",
         reportInterval=print_summary,step=True, time=True, potentialEnergy=True,
@@ -206,8 +226,22 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
 
             # assign predicted charges to ML atoms
             # TODO: we surely don't need to do this on every step?
-            if md_params["partial_charge"] == "predicted":
-                ligand_charges = prediction[2].T
+            if md_params["partial_charge"] != "fixed":
+
+                # get charge prediction from same network as forces / energies
+                if md_params["partial_charge"] == "predicted":
+                    ligand_charges = prediction[2].T
+                # get charge prediction from separate network
+                elif md_params["partial_charge"] == "predicted-sep":
+                    charge_prediction = charge_model.predict_on_batch([np.reshape(coords[
+                        :ligand_n_atom] / angstrom, (1, -1, 3)), np.reshape(ligand_atoms,(1, -1))])
+                    ligand_charges = charge_prediction[2].T
+
+                # correct predicted partial charges so that ligand has correct net charge
+                corr = (sum(ligand_charges) - net_charge) / mol.n_atom
+                for atm in range(mol.n_atom):
+                    ligand_charges[atm] = ligand_charges[atm] - corr
+
                 nbforce = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
                 for j in range(ligand_n_atom):
                     [old_charge, sigma, epsilon] = nbforce.getParticleParameters(j)

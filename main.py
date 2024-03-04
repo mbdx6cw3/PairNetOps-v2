@@ -131,7 +131,12 @@ def main():
         # load previously trained model
         if ann_load:
             print("Loading a trained model...")
-            model = network.load(mol, ann_params)
+            input_dir = "trained_model"
+            isExist = os.path.exists(input_dir)
+            if not isExist:
+                print("ERROR - previously trained model could not be located.")
+                exit()
+            model = network.load(mol, input_dir)
 
         else:
             mol.trainval = [*range(0, n_train + n_val, 1)]
