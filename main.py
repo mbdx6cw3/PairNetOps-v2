@@ -518,12 +518,12 @@ def main():
             np.savetxt(f"./{output_dir}/energies.txt", new_energies, fmt="%.10f")
             coord_file = open(f"./{output_dir}/coords.txt", "w")
             force_file = open(f"./{output_dir}/forces.txt", "w")
-            charge_file = open(f"./{output_dir}/forces.txt", "w")
+            charge_file = open(f"./{output_dir}/charges.txt", "w")
             for item in range(indices.shape[0]):
                 for atom in range(mol.n_atom):
                     print(*new_coords[item, atom], file=coord_file)
                     print(*new_forces[item, atom], file=force_file)
-                    print(*new_charges[item, atom], file=charge_file)
+                    print(new_charges[item, atom], file=charge_file)
 
     elif input_flag == 5:
         print("Reformat an Existing Dataset.")
