@@ -421,8 +421,8 @@ def check_stability(mol, set_size, output_dir):
     stable_list = open(f"./{output_dir}/stable_structures.dat", "w")
 
     print("Checking stability...")
-    max_dev = 0.25 # maximum bond distance deviation
-    min_dist = 0.80 # minimum interatomic distance
+    max_dev = 0.2 # maximum bond distance deviation
+    min_dist = 0.85 # minimum interatomic distance
     stable_trj = True
     stable_count = 0
     for s in range(set_size):

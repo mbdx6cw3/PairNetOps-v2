@@ -254,7 +254,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
 
         # print output
         if (i % print_data) == 0 or i == 0:
-            time = simulation.context.getState().getTime().in_units_of(picoseconds)
             state = simulation.context.getState(getEnergy=True)
             vels = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
@@ -274,6 +273,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             np.savetxt(f5, charges[:ligand_n_atom])
 
         if (i % print_trj) == 0:
+            time = simulation.context.getState().getTime().in_units_of(picoseconds)
             coords = coords / nanometer
             vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
             write_output.grotrj(tot_n_atom, residues, vectors, time,
