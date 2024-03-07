@@ -42,6 +42,7 @@ def setup(force_field, plat):
     if force_field == "ani":
         potential = MLPotential('ani2x')
         system = potential.createSystem(top.topology)
+        ml_force = None
     else:
         # for rigid water to be found the water residue name must be "HOH"
         system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer,
@@ -61,11 +62,20 @@ def setup(force_field, plat):
     print("Number of atoms in ligand: ", ligand_n_atom)
     print("Number of bonds in ligand: ", len(list(residues[0].bonds())))
 
-    nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-    ewald_tol = nb.getEwaldErrorTolerance()
-    [pme_alpha, pme_nx, pme_ny, pme_nz] = nb.getPMEParameters()
-    nb_cut = nb.getCutoffDistance()
-    alpha_ewald = (1.0 / nb_cut) * np.sqrt(-np.log(2.0 * ewald_tol))
+    if force_field != "ani":
+        nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+        ewald_tol = nb.getEwaldErrorTolerance()
+        [pme_alpha, pme_nx, pme_ny, pme_nz] = nb.getPMEParameters()
+        nb_cut = nb.getCutoffDistance()
+        alpha_ewald = (1.0 / nb_cut) * np.sqrt(-np.log(2.0 * ewald_tol))
+        print("Periodic boundary conditions? ", system.usesPeriodicBoundaryConditions())
+        print("Box dimensions: ", gro.getUnitCellDimensions())
+        print("Non-bonded method: ", nb.getNonbondedMethod())
+        print("Non-bonded cut-off distance: ", nb_cut)
+        print("Ewald sum error tolerance (units?) :", ewald_tol)
+        print("PME separation parameter: ", pme_alpha)
+        print("Number of PME grid points along each axis: ", pme_nx, pme_ny, pme_nz)
+        print("Ewald Gaussian width: ", alpha_ewald)
 
     if force_field == "empirical":
         ml_force = None
@@ -111,18 +121,6 @@ def setup(force_field, plat):
     simulation = Simulation(top.topology, system, integrator, platform)
     simulation.context.setPositions(gro.positions)
 
-    print("Periodic boundary conditions? ", system.usesPeriodicBoundaryConditions())
-    print("Box dimensions: ", gro.getUnitCellDimensions())
-    print("Non-bonded method: ", nb.getNonbondedMethod())
-    print("Non-bonded cut-off distance: ", nb_cut)
-    print("Ewald sum error tolerance (units?) :", ewald_tol)
-    print("PME separation parameter: ", pme_alpha)
-    print("Number of PME grid points along each axis: ", pme_nx, pme_ny, pme_nz)
-    print("Ewald Gaussian width: ", alpha_ewald)
-    # print some stuff for each atom
-    #for atom in atoms:
-    #    print(atom.index, atom.name)
-
     # minimise initial configuration
     if minim:
         simulation.minimizeEnergy()
@@ -142,10 +140,11 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     tot_n_atom = len(gro.getPositions())
 
     charges = np.zeros(tot_n_atom)
-    nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-    for i in range(system.getNumParticles()):
-        charge, sigma, epsilon = nb.getParticleParameters(i)
-        charges[i] = charge.value_in_unit(elementary_charge)
+    if force_field != "ani":
+        nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+        for i in range(system.getNumParticles()):
+            charge, sigma, epsilon = nb.getParticleParameters(i)
+            charges[i] = charge.value_in_unit(elementary_charge)
 
     # need to get ligand_n_atom from residue instead
     residues = list(top.topology.residues())
@@ -264,7 +263,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             if force_field == "pair_net":
                 PE = prediction[1][0][0]
             else:
-                PE = state.getPotentialEnergy() / kilojoule_per_mole
+                PE = state.getPotentialEnergy() / kilocalories_per_mole
 
             np.savetxt(f1, coords[:ligand_n_atom])
             np.savetxt(f2, forces[:ligand_n_atom])
