@@ -36,19 +36,23 @@ def main():
 
         option_flag = int(input("""Run a Molecular Dynamics Simulation.
             [1] - Use an Empirical Potential.
-            [2] - Use a PairNet Potential.
+            [2] - Use PairNet
             [3] - Use ANI-2x.
+            [4] - Use MACE-OFF
             > """))
 
         if option_flag == 1:
             print("Use an Empirical Potential.")
             potential = "empirical"
         elif option_flag == 2:
-            print("Use PairNet potential.")
+            print("Use PairNet.")
             potential = "pair_net"
         elif option_flag == 3:
-            print("Use ANI.")
+            print("Use ANI-2x.")
             potential = "ani"
+        elif option_flag == 4:
+            print("Use MACE-OFF")
+            potential = "mace-off"
         print()
 
         plat = str(input("""GPU or CPU?

@@ -9,6 +9,10 @@ import write_output, read_input, os, shutil
 from openmmml import MLPotential
 from network import Network
 import tensorflow as tf
+'''
+import torch
+from openmmtools.openmm_torch.hybrid_md import PureSystem
+'''
 
 def setup(force_field, plat):
 
@@ -43,6 +47,13 @@ def setup(force_field, plat):
         potential = MLPotential('ani2x')
         system = potential.createSystem(top.topology)
         ml_force = None
+        '''
+    elif force_field == "mace-off":
+        file = "./input.pdb"
+        model_path = "MACE_SPICE_larger.model"
+        system = PureSystem(ml_mol=file, model_path = model_path, potential = "mace", output_dir = "output_md", temperature = 298, nl = "torch")
+        ml_force = None
+        '''
     else:
         # for rigid water to be found the water residue name must be "HOH"
         system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer,
@@ -62,7 +73,7 @@ def setup(force_field, plat):
     print("Number of atoms in ligand: ", ligand_n_atom)
     print("Number of bonds in ligand: ", len(list(residues[0].bonds())))
 
-    if force_field != "ani":
+    if force_field == "pair_net" or force_field == "empirical":
         nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
         ewald_tol = nb.getEwaldErrorTolerance()
         [pme_alpha, pme_nx, pme_ny, pme_nz] = nb.getPMEParameters()
@@ -140,7 +151,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     tot_n_atom = len(gro.getPositions())
 
     charges = np.zeros(tot_n_atom)
-    if force_field != "ani":
+    if force_field == "empirical" or force_field == "pair_net":
         nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
         for i in range(system.getNumParticles()):
             charge, sigma, epsilon = nb.getParticleParameters(i)
@@ -200,7 +211,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
-        if force_field == "ani":
+        if force_field == "ani" or force_field == "mace-off":
             charges = np.zeros(tot_n_atom)
 
         if force_field == "pair_net":
