@@ -355,7 +355,7 @@ def gau(set_size, set_space, input_dir, n_atom):
 
             if error_term[i_file]:
                 error = True
-                print(error)
+                print(f"Error with file {i_file}")
 
     return coords, energies, forces, charges, error
 

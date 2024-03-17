@@ -206,6 +206,10 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
 
     # run MD simulation for requested number of timesteps
     print("Performing MD simulation...")
+    state = simulation.context.getState(getEnergy=True)
+    PE = state.getPotentialEnergy() / kilocalories_per_mole
+    print("Initial Potential Energy: ", PE, "kcal/mol")
+
     for i in range(n_steps):
 
         coords = simulation.context.getState(getPositions=True). \
