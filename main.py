@@ -529,6 +529,77 @@ def main():
                     print(*new_forces[item, atom], file=force_file)
                     print(new_charges[item, atom], file=charge_file)
 
+        elif option_flag == 3:
+            print("Generate a New Dataset by Structure Selection using RMSD Criteria.")
+            print("Input format: Text (.txt)")
+            print("Output format: Text (.txt)")
+
+            input_dir = "ml_data"
+            isExist = os.path.exists(input_dir)
+            if not isExist:
+                print("Error - no input files in the working directory")
+                exit()
+
+            output_dir = "ml_data_new"
+            isExist = os.path.exists(output_dir)
+            if isExist:
+                shutil.rmtree(output_dir)
+            os.makedirs(output_dir)
+
+            while True:
+                try:
+                    size = int(input("Enter number of structures > "))
+                    # init = int(input("Enter the initial structure > "))
+                    # space = int(input("Enter spacing between structures > "))
+                    init = 0
+                    space = 1
+                    break
+                except ValueError:
+                    print("Invalid Value")
+
+            # initiate molecule class and parse dataset
+            mol = read_input.Molecule()
+            read_input.Dataset(mol, size, init, space, input_dir, "txt")
+            n_pairs = int(mol.n_atom * (mol.n_atom - 1) / 2)
+
+            # calculate distance matrix
+            analysis.get_rij(mol, size)
+            keep_list = []
+            D_ij_thresh = float(input("Enter distance matrix similarity threshold (Ang) > "))
+            delete = np.full((size), False)
+            for i in range(size):
+                print(i)
+                if not delete[i]:
+                    for j in range(i):
+                        if not delete[j]:
+                            D_ij_sum = 0
+                            # calculate sum of distance matrix difference
+                            for k in range(mol.mat_r.shape[1]):
+                                d_ij = abs(mol.mat_r[i][k] - mol.mat_r[j][k])
+                                D_ij_sum += d_ij**2
+                            D_ij = np.sqrt(D_ij_sum/n_pairs)
+                            # if structures are too similar remove based on threshold
+                            if D_ij < D_ij_thresh:
+                                delete[i] = True
+                if not delete[i]:
+                    keep_list.append(i)
+            indices = np.array(keep_list)
+            print("Number of structures remaining = ", indices.shape[0])
+
+            new_energies = np.take(mol.energies, indices, axis=0)
+            new_coords = np.take(mol.coords, indices, axis=0)
+            new_forces = np.take(mol.forces, indices, axis=0)
+            new_charges = np.take(mol.charges, indices, axis=0)
+            np.savetxt(f"./{output_dir}/energies.txt", new_energies, fmt="%.10f")
+            coord_file = open(f"./{output_dir}/coords.txt", "w")
+            force_file = open(f"./{output_dir}/forces.txt", "w")
+            charge_file = open(f"./{output_dir}/charges.txt", "w")
+            for item in range(indices.shape[0]):
+                for atom in range(mol.n_atom):
+                    print(*new_coords[item, atom], file=coord_file)
+                    print(*new_forces[item, atom], file=force_file)
+                    print(new_charges[item, atom], file=charge_file)
+
     elif input_flag == 5:
         print("Reformat an Existing Dataset.")
         print()

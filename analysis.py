@@ -644,3 +644,25 @@ def error2D(coords, CV_list, output_dir, ref, pred):
         np.linspace(-180, 180, n_bins))
     write_output.heatmap2D(x, y, bin_error, output_dir, "error_2d", "cividis", 2)
     return None
+
+
+def get_rij(mol, set_size):
+    '''
+    returns the distance matrix
+    '''
+    n_pair = int(mol.n_atom * (mol.n_atom - 1) / 2)
+    mol.mat_r = np.zeros((set_size, n_pair))
+    # loop over all structures
+    for s in range(set_size):
+        _N = -1
+        # calculate the distance matrix, r_ij
+        for i in range(mol.n_atom):
+            for j in range(i):
+                _N += 1
+
+                # calculate interatomic distances, save to distance matrix
+                r_ij = np.linalg.norm(mol.coords[s][i] - mol.coords[s][j])
+                mol.mat_r[s, _N] = r_ij
+
+
+
