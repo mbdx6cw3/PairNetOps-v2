@@ -6,6 +6,7 @@ from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam
+import shap
 
 # suppress printing of information messages
 tf.get_logger().setLevel("ERROR")
@@ -243,7 +244,6 @@ class Network(object):
         optimizer = Adam(learning_rate=init_lr,
                 beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
 
-
         # define loss function
         model.compile(loss={'f': 'mse', 'e': 'mse', 'q': 'mse'},
             loss_weights={'f': loss_weight[0], 'e': loss_weight[1], 'q':
@@ -449,4 +449,11 @@ class Network(object):
         L = write_output.scurve(all_actual.flatten(), all_prediction.flatten(),
                       output_dir, f"{label}_scurve", val)
         return mean_ae, max_ae, L
+
+
+    def feature_reduction(self, model, mol):
+        explainer = shap.KernelExplainer(model.predict, mol.train)
+        shap_values = explainer.shap_values(mol.test, nsamples=100)
+        shap.summary_plot(shap_values, mol.test)
+        pass
 

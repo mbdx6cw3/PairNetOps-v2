@@ -157,6 +157,7 @@ def ann(input_file):
     except ValueError:
         print("***ERROR: Invalid number of layers")
         exit()
+    # TODO: not sure why this is here?
     params["nodes"] = str(params["n_nodes"])
     accepted_strings = ["auto"]
     if params["n_nodes"] not in accepted_strings:

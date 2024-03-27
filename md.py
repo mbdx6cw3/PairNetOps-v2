@@ -1,4 +1,3 @@
-import openmm
 from openmm.app import *
 from openmm import *
 from openmm.unit import *
@@ -6,10 +5,10 @@ from openmmplumed import PlumedForce
 from openmmtools import integrators
 import numpy as np
 import write_output, read_input, os, shutil
-from openmmml import MLPotential
 from network import Network
 import tensorflow as tf
 '''
+from openmmml import MLPotential
 import torch
 from openmmtools.openmm_torch.hybrid_md import PureSystem
 '''
@@ -42,23 +41,24 @@ def setup(force_field, plat):
     top = GromacsTopFile(f"{input_dir}/input.top",
         periodicBoxVectors=gro.getPeriodicBoxVectors())
 
+    '''
     # TODO: setting up of mixed ANI/MM system: https://github.com/openmm/openmm-ml
     if force_field == "ani":
         potential = MLPotential('ani2x')
         system = potential.createSystem(top.topology)
         ml_force = None
-        '''
+        
     elif force_field == "mace-off":
         file = "./input.pdb"
         model_path = "MACE_SPICE_larger.model"
         system = PureSystem(ml_mol=file, model_path = model_path, potential = "mace", output_dir = "output_md", temperature = 298, nl = "torch")
         ml_force = None
-        '''
-    else:
-        # for rigid water to be found the water residue name must be "HOH"
-        system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer,
-            ewaldErrorTolerance=0.0005, constraints=None, removeCMMotion=True,
-            rigidWater=True, switchDistance=None)
+    '''
+
+    # for rigid water to be found the water residue name must be "HOH"
+    system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer,
+        ewaldErrorTolerance=0.0005, constraints=None, removeCMMotion=True,
+        rigidWater=True, switchDistance=None)
 
     print("Checking simulation setup...")
     print()
@@ -73,20 +73,19 @@ def setup(force_field, plat):
     print("Number of atoms in ligand: ", ligand_n_atom)
     print("Number of bonds in ligand: ", len(list(residues[0].bonds())))
 
-    if force_field == "pair_net" or force_field == "empirical":
-        nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-        ewald_tol = nb.getEwaldErrorTolerance()
-        [pme_alpha, pme_nx, pme_ny, pme_nz] = nb.getPMEParameters()
-        nb_cut = nb.getCutoffDistance()
-        alpha_ewald = (1.0 / nb_cut) * np.sqrt(-np.log(2.0 * ewald_tol))
-        print("Periodic boundary conditions? ", system.usesPeriodicBoundaryConditions())
-        print("Box dimensions: ", gro.getUnitCellDimensions())
-        print("Non-bonded method: ", nb.getNonbondedMethod())
-        print("Non-bonded cut-off distance: ", nb_cut)
-        print("Ewald sum error tolerance (units?) :", ewald_tol)
-        print("PME separation parameter: ", pme_alpha)
-        print("Number of PME grid points along each axis: ", pme_nx, pme_ny, pme_nz)
-        print("Ewald Gaussian width: ", alpha_ewald)
+    nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+    ewald_tol = nb.getEwaldErrorTolerance()
+    [pme_alpha, pme_nx, pme_ny, pme_nz] = nb.getPMEParameters()
+    nb_cut = nb.getCutoffDistance()
+    alpha_ewald = (1.0 / nb_cut) * np.sqrt(-np.log(2.0 * ewald_tol))
+    print("Periodic boundary conditions? ", system.usesPeriodicBoundaryConditions())
+    print("Box dimensions: ", gro.getUnitCellDimensions())
+    print("Non-bonded method: ", nb.getNonbondedMethod())
+    print("Non-bonded cut-off distance: ", nb_cut)
+    print("Ewald sum error tolerance (units?) :", ewald_tol)
+    print("PME separation parameter: ", pme_alpha)
+    print("Number of PME grid points along each axis: ", pme_nx, pme_ny, pme_nz)
+    print("Ewald Gaussian width: ", alpha_ewald)
 
     if force_field == "empirical":
         ml_force = None
@@ -122,7 +121,6 @@ def setup(force_field, plat):
             # TODO: what is the difference between picoseconds and picosecond?
 
     # define biasing potentials
-    # TODO: Why is ANI incompatible with bias?
     if bias:
         plumed_file = open(f"{input_dir}/plumed.dat", "r")
         plumed_script = plumed_file.read()
@@ -151,11 +149,10 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     tot_n_atom = len(gro.getPositions())
 
     charges = np.zeros(tot_n_atom)
-    if force_field == "empirical" or force_field == "pair_net":
-        nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
-        for i in range(system.getNumParticles()):
-            charge, sigma, epsilon = nb.getParticleParameters(i)
-            charges[i] = charge.value_in_unit(elementary_charge)
+    nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
+    for i in range(system.getNumParticles()):
+        charge, sigma, epsilon = nb.getParticleParameters(i)
+        charges[i] = charge.value_in_unit(elementary_charge)
 
     # need to get ligand_n_atom from residue instead
     residues = list(top.topology.residues())
@@ -174,7 +171,6 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         if len(ligand_atoms) != ligand_n_atom:
             print("ERROR - number of atoms in trained network is incompatible with number of atoms in topology")
             exit()
-        mol.n_atom = len(ligand_atoms)
         model = network.load(mol, input_dir)
 
         # if charges are being predicted enforce ligand net charge
@@ -215,16 +211,17 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
+        '''
         if force_field == "ani" or force_field == "mace-off":
             charges = np.zeros(tot_n_atom)
+        '''
 
         if force_field == "pair_net":
             # clears session to avoid running out of memory
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
 
-            # predict intramolecular ML forces
-            # predict_on_batch faster with only single structure
+            # predict ML forces: predict_on_batch faster for  single structure
             prediction = model.predict_on_batch([np.reshape(coords
                 [:ligand_n_atom]/angstrom, (1, -1, 3)),
                 np.reshape(ligand_atoms,(1, -1))])

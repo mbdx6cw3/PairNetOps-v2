@@ -37,9 +37,12 @@ def main():
         option_flag = int(input("""Run a Molecular Dynamics Simulation.
             [1] - Use an Empirical Potential.
             [2] - Use PairNet
-            [3] - Use ANI-2x.
-            [4] - Use MACE-OFF
             > """))
+
+        '''
+        [3] - Use ANI-2x.
+        [4] - Use MACE-OFF
+        '''
 
         if option_flag == 1:
             print("Use an Empirical Potential.")
@@ -47,12 +50,14 @@ def main():
         elif option_flag == 2:
             print("Use PairNet.")
             potential = "pair_net"
+        '''
         elif option_flag == 3:
             print("Use ANI-2x.")
             potential = "ani"
         elif option_flag == 4:
             print("Use MACE-OFF")
             potential = "mace-off"
+        '''
         print()
 
         plat = str(input("""GPU or CPU?
@@ -81,6 +86,7 @@ def main():
              [3] - Load and train a network.
              [4] - Load, train and test a network.
              [5] - Load and test a network.
+             [6] - Feature reduction.
              > """))
 
         # make new directory to store output
@@ -119,7 +125,7 @@ def main():
             ann_test = True
         else:
             ann_test = False
-        if option_flag == 3 or option_flag == 4 or option_flag == 5:
+        if option_flag == 3 or option_flag == 4 or option_flag == 5 or option_flag == 6:
             ann_load = True
         else:
             ann_load = False
@@ -195,6 +201,12 @@ def main():
 
             print("Testing model...")
             network.test(model, mol, output_dir1, ann_params, conf_test)
+
+        if option_flag == 6:
+            mol.train = [*range(0, n_train, 1)]
+            mol.test = [*range(n_train + n_val, size, 1)]
+            network.feature_reduction(model, mol)
+        print("Analysis complete")
 
     elif input_flag == 3:
         print("Analyse a Dataset")
