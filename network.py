@@ -252,6 +252,8 @@ class Network(object):
         # print out the model here
         model.summary()
         print("Initial learning rate:", init_lr)
+        # check and print out availability of GPUs
+        print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
         # train the network
         result = model.fit([train_coords, train_atoms],
