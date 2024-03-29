@@ -59,23 +59,14 @@ def main():
             potential = "mace-off"
         '''
         print()
-
-        plat = str(input("""GPU or CPU?
-            > """))
-        if plat == "GPU":
-            plat = "OpenCL"
-            print("Using a GPU node")
-        else:
-            print("Using a CPU node")
-        print()
         print("Running MD Simulation...")
 
         # setup simulation
-        simulation, system, output_dir, md_params, gro, top, ml_force = md.setup(potential, plat)
+        simulation, system, output_dir, md_params, gro, top, ml_force = md.setup(force_field)
 
         # run simulation
         startTime = datetime.now()
-        md.simulate(simulation, system, potential, output_dir, md_params, gro, top, ml_force)
+        md.simulate(simulation, system, force_field, output_dir, md_params, gro, top, ml_force)
         print(datetime.now() - startTime)
 
     elif input_flag == 2:

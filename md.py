@@ -13,7 +13,7 @@ import torch
 from openmmtools.openmm_torch.hybrid_md import PureSystem
 '''
 
-def setup(force_field, plat):
+def setup(force_field):
 
     input_dir = "md_input"
     isExist = os.path.exists(input_dir)
@@ -36,7 +36,6 @@ def setup(force_field, plat):
     thermostat = md_params["thermostat"]
     minim = md_params["minim"]
     coll_freq = md_params["coll_freq"]
-    platform = Platform.getPlatformByName(plat)
     gro = GromacsGroFile(f"{input_dir}/input.gro")
     top = GromacsTopFile(f"{input_dir}/input.top",
         periodicBoxVectors=gro.getPeriodicBoxVectors())
@@ -127,7 +126,7 @@ def setup(force_field, plat):
         system.addForce(PlumedForce(plumed_script))
 
     # set up simulation
-    simulation = Simulation(top.topology, system, integrator, platform)
+    simulation = Simulation(top.topology, system, integrator)
     simulation.context.setPositions(gro.positions)
 
     # minimise initial configuration
