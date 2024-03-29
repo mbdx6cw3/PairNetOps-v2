@@ -159,6 +159,10 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     ligand_n_atom = len(list(residues[0].atoms()))
 
     if force_field == "pair_net":
+
+        # this is necessary to tell tensorflow to use CPU and GPU when building/predicting
+        tf.config.set_visible_devices([], 'GPU')
+
         mol = read_input.Molecule()
         network = Network(mol)
         print("Loading a trained model...")
@@ -171,6 +175,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         if len(ligand_atoms) != ligand_n_atom:
             print("ERROR - number of atoms in trained network is incompatible with number of atoms in topology")
             exit()
+        mol.n_atom = len(ligand_atoms)
         model = network.load(mol, input_dir)
 
         # if charges are being predicted enforce ligand net charge
