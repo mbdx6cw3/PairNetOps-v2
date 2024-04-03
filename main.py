@@ -39,25 +39,12 @@ def main():
             [2] - Use PairNet
             > """))
 
-        '''
-        [3] - Use ANI-2x.
-        [4] - Use MACE-OFF
-        '''
-
         if option_flag == 1:
             print("Use an Empirical Potential.")
-            potential = "empirical"
+            force_field = "empirical"
         elif option_flag == 2:
             print("Use PairNet.")
-            potential = "pair_net"
-        '''
-        elif option_flag == 3:
-            print("Use ANI-2x.")
-            potential = "ani"
-        elif option_flag == 4:
-            print("Use MACE-OFF")
-            potential = "mace-off"
-        '''
+            force_field = "pair_net"
         print()
         print("Running MD Simulation...")
 
@@ -71,13 +58,14 @@ def main():
 
     elif input_flag == 2:
 
+        # TODO: train or test a model? Incorporate linear regression?
         option_flag = int(input("""Train or Test a PairNet Potential.
              [1] - Train a network.
              [2] - Train and test a network.
              [3] - Load and train a network.
              [4] - Load, train and test a network.
              [5] - Load and test a network.
-             [6] - Feature reduction.
+             [6] - Linear regression.
              > """))
 
         # make new directory to store output
@@ -157,7 +145,7 @@ def main():
                 os.makedirs(output_dir2)
             shutil.copy2(f"./ann_params.txt", f"./{output_dir2}")
             np.savetxt(f"./{output_dir2}/nuclear_charges.txt",
-                (np.array(mol.atoms)).reshape(-1, 1))
+                (np.array(mol.atoms)).reshape(-1, 1).astype(int), fmt='%i')
 
             # pairwise decomposition of energies
             print("Calculating pairwise energies...")
