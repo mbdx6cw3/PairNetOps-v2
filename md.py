@@ -7,11 +7,6 @@ import numpy as np
 import write_output, read_input, os, shutil
 from network import Network
 import tensorflow as tf
-'''
-from openmmml import MLPotential
-import torch
-from openmmtools.openmm_torch.hybrid_md import PureSystem
-'''
 
 def setup(force_field):
 

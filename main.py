@@ -416,7 +416,7 @@ def main():
         option_flag = int(input("""Generate a New Dataset...
              [1] - ...by Dihedral Rotation.
              [2] - ...by Structure Selection using Index List.
-             [3] - ...by Structure Selection using RMSD Criteria.
+             [3] - ...by Structure Selection using Distance Matrix RMSD (D).
              > """))
 
         if option_flag == 1:
@@ -521,7 +521,7 @@ def main():
                     print(new_charges[item, atom], file=charge_file)
 
         elif option_flag == 3:
-            print("Generate a New Dataset by Structure Selection using RMSD Criteria.")
+            print("Generate a New Dataset Distance Matrix RMSD (D).")
             print("Input format: Text (.txt)")
             print("Output format: Text (.txt)")
 
@@ -551,31 +551,42 @@ def main():
             # initiate molecule class and parse dataset
             mol = read_input.Molecule()
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
-            n_pairs = int(mol.n_atom * (mol.n_atom - 1) / 2)
 
             # calculate distance matrix
             analysis.get_rij(mol, size)
             keep_list = []
-            D_ij_thresh = float(input("Enter distance matrix similarity threshold (Ang) > "))
+            D_ij_cut = float(input("Enter D cut-off (Ang.) > "))
             delete = np.full((size), False)
+            D = np.zeros((size, size))
             for i in range(size):
-                print(i)
+                for j in range(i):
+                    if not delete[j]:
+                        D_ij_sum = 0
+                        # calculate sum of distance matrix difference
+                        for k in range(mol.mat_r.shape[1]):
+                            d_ij = abs(mol.mat_r[i][k] - mol.mat_r[j][k])
+                            D_ij_sum += d_ij**2
+                        D[i,j] = np.sqrt(D_ij_sum/mol.mat_r.shape[1])
+                        # if structures are too similar remove j based on threshold
+                        if D[i,j] < D_ij_cut:
+                            delete[i] = True
+                if not delete[i]:
+                    keep_list.append(i)
+
+            # for remaining structures calculate average D_ij
+            D_sum = 0
+            count = 0
+            for i in range(size):
                 if not delete[i]:
                     for j in range(i):
                         if not delete[j]:
-                            D_ij_sum = 0
-                            # calculate sum of distance matrix difference
-                            for k in range(mol.mat_r.shape[1]):
-                                d_ij = abs(mol.mat_r[i][k] - mol.mat_r[j][k])
-                                D_ij_sum += d_ij**2
-                            D_ij = np.sqrt(D_ij_sum/n_pairs)
-                            # if structures are too similar remove based on threshold
-                            if D_ij < D_ij_thresh:
-                                delete[i] = True
-                if not delete[i]:
-                    keep_list.append(i)
+                            D_sum += D[i,j]
+                            count += 1
+
             indices = np.array(keep_list)
             print("Number of structures remaining = ", indices.shape[0])
+            n_pairs = (indices.shape[0] * (indices.shape[0] - 1))/2
+            print("Mean D in new dataset = ", D_sum/n_pairs, "Angstrom")
 
             new_energies = np.take(mol.energies, indices, axis=0)
             new_coords = np.take(mol.coords, indices, axis=0)
