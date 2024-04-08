@@ -553,22 +553,19 @@ def main():
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
             # calculate distance matrix
-            analysis.get_rij(mol, size)
+            mat_r = analysis.get_rij(mol.coords, size)
             keep_list = []
             D_ij_cut = float(input("Enter D cut-off (Ang.) > "))
             delete = np.full((size), False)
             D = np.zeros((size, size))
             for i in range(size):
+                print(i)
                 for j in range(i):
                     if not delete[j]:
-                        D_ij_sum = 0
-                        # calculate sum of distance matrix difference
-                        for k in range(mol.mat_r.shape[1]):
-                            d_ij = abs(mol.mat_r[i][k] - mol.mat_r[j][k])
-                            D_ij_sum += d_ij**2
-                        D[i,j] = np.sqrt(D_ij_sum/mol.mat_r.shape[1])
-                        # if structures are too similar remove j based on threshold
-                        if D[i,j] < D_ij_cut:
+                        # calculate rmsd for structures i and j
+                        D[i, j] = analysis.D_rmsd(i, j, mat_r)
+                        # if structures are too similar remove structure i
+                        if D[i, j] < D_ij_cut:
                             delete[i] = True
                 if not delete[i]:
                     keep_list.append(i)

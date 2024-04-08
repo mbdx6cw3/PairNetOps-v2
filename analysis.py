@@ -646,23 +646,34 @@ def error2D(coords, CV_list, output_dir, ref, pred):
     return None
 
 
-def get_rij(mol, set_size):
+def get_rij(coords, size):
     '''
-    returns the distance matrix
+    returns the distance matrix for a structure or set of structures
     '''
-    n_pair = int(mol.n_atom * (mol.n_atom - 1) / 2)
-    mol.mat_r = np.zeros((set_size, n_pair))
+    n_atom = coords.shape[1]
+    n_pair = int(n_atom * (n_atom - 1) / 2)
+    mat_r = np.zeros((size, n_pair))
     # loop over all structures
-    for s in range(set_size):
+    for s in range(size):
         _N = -1
         # calculate the distance matrix, r_ij
-        for i in range(mol.n_atom):
+        for i in range(n_atom):
             for j in range(i):
                 _N += 1
 
                 # calculate interatomic distances, save to distance matrix
-                r_ij = np.linalg.norm(mol.coords[s][i] - mol.coords[s][j])
-                mol.mat_r[s, _N] = r_ij
+                r_ij = np.linalg.norm(coords[s][i] - coords[s][j])
+                mat_r[s, _N] = r_ij
+    return mat_r
 
+
+def D_rmsd(i, j, mat_r):
+    # calculate sum of distance matrix difference
+    D_sum = 0
+    for k in range(mat_r.shape[1]):
+        d_ij = abs(mat_r[i][k] - mat_r[j][k])
+        D_sum += d_ij ** 2
+    D = np.sqrt(D_sum / mat_r.shape[1])
+    return D
 
 
