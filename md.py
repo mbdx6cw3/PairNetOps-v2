@@ -4,7 +4,7 @@ from openmm.unit import *
 from openmmplumed import PlumedForce
 from openmmtools import integrators
 import numpy as np
-import write_output, read_input, os, shutil
+import write_output, read_input, analysis, os, shutil
 from network import Network
 import tensorflow as tf
 
@@ -191,8 +191,16 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     PE = state.getPotentialEnergy() / kilocalories_per_mole
     print("Initial Potential Energy: ", PE, "kcal/mol")
 
-    for i in range(n_steps):
+    if md_params["D_sample"]:
+        print("Dynamic sampling based on distance matrix cut-off.")
+        D_start = md_params["D_start"]
+        D_conv = md_params["D_conv"]
+        D_cut = md_params["D_cut"]
+        f6 = open(f"./{output_dir}/dataset_size.txt", "w")
+        n_structure = np.zeros((n_steps))
 
+    for i in range(n_steps):
+        print_coords = False
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
@@ -243,8 +251,39 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         # advance trajectory one timestep
         simulation.step(1)
 
-        # print output
-        if (i % print_data) == 0 or i == 0:
+        coords = simulation.context.getState(getPositions=True). \
+            getPositions(asNumpy=True).in_units_of(angstrom)
+
+        # if doing distance matrix sampling decide whether to save structure
+        if md_params["D_sample"]:
+            if i == 0:
+                mat_r = analysis.get_rij(coords, 1)
+                mat_d = mat_r
+                print_coords = True
+                size = 1
+
+            if i > D_start:
+                if (i % print_data) == 0:
+                    mat_r = analysis.get_rij(coords, 1)
+                    test_mat_d = np.append(mat_d, mat_r, axis=0)
+                    print_coords = True
+
+                    for j in range(mat_d.shape[0]):
+                        D = analysis.D_rmsd(-1, j, test_mat_d)
+                        if D < D_cut:
+                            print_coords = False
+                            break
+
+                    if print_coords:
+                        mat_d = np.append(mat_d, mat_r, axis=0)
+                        size += 1
+                        #print(i, size)
+
+        # print as normal if not using distance matrix or before D_start
+        elif (i % print_data) == 0 or i == 0:
+            print_coords = True
+
+        if print_coords:
             state = simulation.context.getState(getEnergy=True)
             vels = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
@@ -262,18 +301,30 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             np.savetxt(f3, vels[:ligand_n_atom])
             f4.write(f"{PE}\n")
             np.savetxt(f5, charges[:ligand_n_atom])
+            if md_params["D_sample"]:
+                f6.write(f"{i} {size}\n")
 
         if (i % print_trj) == 0:
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
+            vels = simulation.context.getState(getVelocities=True).\
+                getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
             coords = coords / nanometer
             vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
             write_output.grotrj(tot_n_atom, residues, vectors, time,
                 coords, vels, gro.atomNames, output_dir, "output")
+
+        # convergence check wrt to number of structures
+        if md_params["D_sample"]:
+            n_structure[i] = size
+            if n_structure[i] == n_structure[i-D_conv]:
+                print("Dataset size has converged. Ending MD simulation.")
+                break
 
     f1.close()
     f2.close()
     f3.close()
     f4.close()
     f5.close()
+    f6.close()
     return None
 

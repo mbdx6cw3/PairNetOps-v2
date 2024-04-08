@@ -307,8 +307,21 @@ def md(input_file):
     elif params["bias"].strip() == "True":
         params["bias"] = True
 
-    return params
+    if params["D_sample"].strip() == "False":
+        params["D_sample"] = False
+    elif params["D_sample"].strip() == "True":
+        params["D_sample"] = True
 
+    if params["D_sample"]:
+        try:
+            params["D_start"] = int(params["D_start"])
+            params["D_conv"] = int(params["D_conv"])
+            params["D_cut"] = float(params["D_cut"])
+        except ValueError:
+            print("***ERROR: Invalid value.")
+            exit()
+
+    return params
 
 def gau(set_size, set_space, input_dir, n_atom):
     energies = np.empty(shape=[set_size])
