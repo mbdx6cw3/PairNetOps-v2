@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 import numpy as np
 import write_output, os, analysis, read_input
+# this is to stop the placeholder tensor bug in TF 2.12 - remove later
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
-from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.optimizers import Adam, RMSprop
 import shap
 
 # suppress printing of information messages
 tf.get_logger().setLevel("ERROR")
+print("Tensorflow version:", tf.__version__)
 
 class NuclearChargePairs(Layer):
     def __init__(self, _NC2, n_atoms, **kwargs):
@@ -215,6 +218,19 @@ class Network(object):
         train_charges = np.take(mol.charges, mol.train, axis=0)
         val_charges = np.take(mol.charges, mol.val, axis=0)
 
+        '''
+        pre_train = False
+        if pre_train:
+            train_energies = np.take(mol.orig_energies, mol.train, axis=0)
+            rel_energies = train_energies - min(train_energies)
+            nrfs = np.take(mol.mat_NRF, mol.train, axis=0)
+            model.fit(nrfs, rel_energies, epochs=200, verbose=2)
+            weights = model.layers[0].get_weights()[0]
+            print(nrfs.shape[0])
+            for i in range(nrfs.shape[1]):
+                print(mol.mat_i[i], mol.mat_j[i], weights[i][0])
+        '''
+
         # create arrays of nuclear charges for different sets
         train_atoms = np.tile(atoms, (len(train_coords), 1))
         val_atoms = np.tile(atoms, (len(val_coords), 1))
@@ -351,7 +367,6 @@ class Network(object):
             delimiter=" ", fmt="%.6f")
 
         # calculate electrostatic energy and compare to reference
-
         return None
 
 
@@ -386,6 +401,16 @@ class Network(object):
         # calculate scaled NRFs from coordinates and nuclear charges
         NRF_layer = CoordsToNRF(max_NRF, n_pairs, n_atoms, name='NRF_layer')\
                 ([coords_layer, nc_pairs_layer])
+
+        '''
+        pre_train = False
+        if pre_train:
+            model = Sequential()
+            model.add(Input(shape=(n_pairs,)))
+            model.add(Dense(1))
+            model.compile(loss="mse", optimizer=Adam(0.01), metrics=["mae"])
+            model.summary()
+        '''
 
         # define input layer as the NRFs
         connected_layer = NRF_layer
@@ -454,6 +479,9 @@ class Network(object):
 
 
     def feature_reduction(self, model, mol):
+        # create objection called an explainer - the object that takes as input
+        # the predict method and the training dataset
+        # in order to make SHAP model agnostic i
         explainer = shap.KernelExplainer(model.predict, mol.train)
         shap_values = explainer.shap_values(mol.test, nsamples=100)
         shap.summary_plot(shap_values, mol.test)

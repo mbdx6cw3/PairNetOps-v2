@@ -254,32 +254,39 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
-        # if doing distance matrix sampling decide whether to save structure
+        # distance matrix rmsd sampling
         if md_params["D_sample"]:
+            # get the distance matrix for the first structure and add to dataset arrau
             if i == 0:
-                mat_r = analysis.get_rij(coords, 1)
-                mat_d = mat_r
+                mat_d = analysis.get_rij(np.reshape(coords,
+                    (1,coords.shape[0],3)),coords.shape[0],1)
                 print_coords = True
-                size = 1
+                size = 1 # count number of structures in dataset
+                print(i, size)
 
             if i > D_start:
                 if (i % print_data) == 0:
-                    mat_r = analysis.get_rij(coords, 1)
+                    # get distance matrix for this structure and add to distance
+                    # matrix array for dataset
+                    mat_r = analysis.get_rij(np.reshape(coords,
+                        (1,coords.shape[0],3)),coords.shape[0],1)
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
                     print_coords = True
 
-                    for j in range(mat_d.shape[0]):
+                    # calculate distance matrix RMSD for last vs all others
+                    for j in range(mat_d.shape[0]-1):
                         D = analysis.D_rmsd(-1, j, test_mat_d)
                         if D < D_cut:
                             print_coords = False
                             break
 
+                    # if last structure is sufficently different add to dataset
                     if print_coords:
                         mat_d = np.append(mat_d, mat_r, axis=0)
-                        size += 1
-                        #print(i, size)
+                        size += 1   # count number of structures in dataset
+                        print(i, size)
 
-        # print as normal if not using distance matrix or before D_start
+        # print as normal if not using distance matrix sampling
         elif (i % print_data) == 0 or i == 0:
             print_coords = True
 

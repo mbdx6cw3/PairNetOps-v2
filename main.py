@@ -552,38 +552,36 @@ def main():
             mol = read_input.Molecule()
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
-            # calculate distance matrix
-            mat_r = analysis.get_rij(mol.coords, size)
+            # calculate distance matrix for all structures
+            mat_r = analysis.get_rij(mol.coords, mol.coords.shape[1], size)
             keep_list = []
-            D_ij_cut = float(input("Enter D cut-off (Ang.) > "))
+            D_cut = float(input("Enter D cut-off (Ang.) > "))
             delete = np.full((size), False)
-            D = np.zeros((size, size))
             for i in range(size):
                 print(i)
                 for j in range(i):
                     if not delete[j]:
                         # calculate rmsd for structures i and j
-                        D[i, j] = analysis.D_rmsd(i, j, mat_r)
+                        D = analysis.D_rmsd(i, j, mat_r)
                         # if structures are too similar remove structure i
-                        if D[i, j] < D_ij_cut:
+                        if D < D_cut:
                             delete[i] = True
                 if not delete[i]:
                     keep_list.append(i)
 
             # for remaining structures calculate average D_ij
-            D_sum = 0
-            count = 0
-            for i in range(size):
-                if not delete[i]:
-                    for j in range(i):
-                        if not delete[j]:
-                            D_sum += D[i,j]
-                            count += 1
+            #D_sum = 0
+            #count = 0
+            #for i in range(size):
+            #    if not delete[i]:
+            #        for j in range(i):
+            #            if not delete[j]:
+            #                count += 1
 
             indices = np.array(keep_list)
             print("Number of structures remaining = ", indices.shape[0])
-            n_pairs = (indices.shape[0] * (indices.shape[0] - 1))/2
-            print("Mean D in new dataset = ", D_sum/n_pairs, "Angstrom")
+            #n_pairs = (indices.shape[0] * (indices.shape[0] - 1))/2
+            #print("Mean D in new dataset = ", D_sum/n_pairs, "Angstrom")
 
             new_energies = np.take(mol.energies, indices, axis=0)
             new_coords = np.take(mol.coords, indices, axis=0)
