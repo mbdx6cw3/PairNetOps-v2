@@ -251,15 +251,14 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         # advance trajectory one timestep
         simulation.step(1)
 
-        coords = simulation.context.getState(getPositions=True). \
-            getPositions(asNumpy=True).in_units_of(angstrom)
+        # TODO: move to start of loop?
+        ligand_coords = np.reshape(coords[:ligand_n_atom] / angstrom,(1, -1, 3))
 
         # distance matrix rmsd sampling
         if md_params["D_sample"]:
             # get the distance matrix for the first structure and add to dataset arrau
             if i == 0:
-                mat_d = analysis.get_rij(np.reshape(coords,
-                    (1,coords.shape[0],3)),coords.shape[0],1)
+                mat_d = analysis.get_rij(ligand_coords,ligand_coords.shape[1],1)
                 print_coords = True
                 size = 1 # count number of structures in dataset
                 print(i, size)
@@ -268,8 +267,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
                 if (i % print_data) == 0:
                     # get distance matrix for this structure and add to distance
                     # matrix array for dataset
-                    mat_r = analysis.get_rij(np.reshape(coords,
-                        (1,coords.shape[0],3)),coords.shape[0],1)
+                    mat_r = analysis.get_rij(ligand_coords,ligand_coords.shape[1],1)
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
                     print_coords = True
 
@@ -285,6 +283,7 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
                         mat_d = np.append(mat_d, mat_r, axis=0)
                         size += 1   # count number of structures in dataset
                         print(i, size)
+                        sys.stdout.flush()
 
         # print as normal if not using distance matrix sampling
         elif (i % print_data) == 0 or i == 0:
