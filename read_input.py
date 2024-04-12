@@ -317,6 +317,11 @@ def md(input_file):
             params["D_start"] = int(params["D_start"])
             params["D_conv"] = int(params["D_conv"])
             params["D_cut"] = float(params["D_cut"])
+            if params["shuffle_perm"].strip() == "False":
+                params["shuffle_perm"] = False
+            elif params["shuffle_perm"].strip() == "True":
+                params["shuffle_perm"] = True
+
         except ValueError:
             print("***ERROR: Invalid value.")
             exit()
@@ -373,9 +378,8 @@ def gau(set_size, set_space, input_dir, n_atom):
 
     return coords, energies, forces, charges, error
 
-def perm(mol):
-
-    with open(f"./permutations.txt", "r") as perm_file:
+def perm(file_name):
+    with open(f"./{file_name}", "r") as perm_file:
         max_atm = 10
         max_symm_atm = 10
         n_perm_grp = int(perm_file.readline())
@@ -390,9 +394,6 @@ def perm(mol):
                     n_symm_atm[i_perm] = len(indices)
                 for i_atm in range(n_symm_atm[i_perm]):
                     perm_atm[i_perm][i_symm][i_atm] = indices[i_atm]
-                    if perm_atm[i_perm][i_symm][i_atm] > mol.n_atom:
-                        print("Error - permutation atom out of range")
-                        exit()
         perm_file.close()
 
     return n_perm_grp, perm_atm, n_symm, n_symm_atm

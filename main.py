@@ -566,6 +566,7 @@ def main():
                         # if structures are too similar remove structure i
                         if D < D_cut:
                             delete[i] = True
+                # if structure i wasn't deleted keep it in the dataset
                 if not delete[i]:
                     keep_list.append(i)
 
@@ -667,7 +668,7 @@ def main():
             print("Output format: .txt")
             if perm_option == "Y":
                 output_dir = "ml_data_perm"
-                n_perm_grp, perm_atm, n_symm, n_symm_atm = read_input.perm(mol)
+                n_perm_grp, perm_atm, n_symm, n_symm_atm = read_input.perm("permutations.txt")
                 print("Shuffling atomic permutations...")
                 analysis.permute(mol, n_perm_grp, perm_atm, n_symm, n_symm_atm)
             else:

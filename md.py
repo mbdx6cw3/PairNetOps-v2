@@ -7,6 +7,7 @@ import numpy as np
 import write_output, read_input, analysis, os, shutil
 from network import Network
 import tensorflow as tf
+import random
 
 def setup(force_field):
 
@@ -198,6 +199,11 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         D_cut = md_params["D_cut"]
         f6 = open(f"./{output_dir}/dataset_size.txt", "w")
         n_structure = np.zeros((n_steps))
+        if md_params["shuffle_perm"]:
+            print("Shuffle permutationally equivalent atoms.")
+            n_perm_grp, perm_atm, n_symm, n_symm_atm = \
+                read_input.perm("md_input/permutations.txt")
+            print(n_perm_grp, perm_atm, n_symm, n_symm_atm)
 
     for i in range(n_steps):
         print_coords = False
@@ -265,23 +271,19 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
 
             if i > D_start:
                 if (i % print_data) == 0:
-                    # get distance matrix for this structure and add to distance
-                    # matrix array for dataset
-                    mat_r = analysis.get_rij(ligand_coords,ligand_coords.shape[1],1)
+                    # shuffle permutations
+                    ligand_coords = permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm)
+                    # get distance matrix for this structure
+                    mat_r = analysis.get_rij(ligand_coords,ligand_n_atom, 1)
+                    # compare to all other distance matrices
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
-                    print_coords = True
+                    print_coords = d_sample(test_mat_d, D_cut)
 
-                    # calculate distance matrix RMSD for last vs all others
-                    for j in range(mat_d.shape[0]-1):
-                        D = analysis.D_rmsd(-1, j, test_mat_d)
-                        if D < D_cut:
-                            print_coords = False
-                            break
-
-                    # if last structure is sufficently different add to dataset
+                    # save structure
                     if print_coords:
                         mat_d = np.append(mat_d, mat_r, axis=0)
-                        size += 1   # count number of structures in dataset
+                        size = mat_d.shape[0]   # count number of structures in dataset
+                        # TODO: print success rate of accepted structures? print average d over time?
                         print(i, size)
                         sys.stdout.flush()
 
@@ -334,3 +336,33 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     f6.close()
     return None
 
+
+def d_sample(mat_d, D_cut):
+    # get distance matrix for this structure and add to dataset
+    print_coords = True
+
+    # calculate distance matrix RMSD for last vs all others
+    for j in range(mat_d.shape[0] - 1):
+        D = analysis.D_rmsd(-1, j, mat_d)
+        if D < D_cut:
+            print_coords = False
+            break
+
+    return print_coords
+
+def permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm):
+    # loop through symmetry groups
+    for i_perm in range(n_perm_grp):
+        # perform 10 swap moves for this symmetry group
+        for i_swap in range(10):
+            # for this permutation randomly select a symmetry group
+            old_perm = perm_atm[i_perm][random.randint(0,n_symm[i_perm]-1)][:]
+            new_perm = perm_atm[i_perm][random.randint(0,n_symm[i_perm]-1)][:]
+            # swap and save coordinates for these groups
+            for i_atm in range(n_symm_atm[i_perm]):
+                temp_coord = np.copy(ligand_coords[0, old_perm[i_atm] - 1])
+                ligand_coords[0, old_perm[i_atm] - 1] = \
+                    ligand_coords[0, new_perm[i_atm] - 1]
+                ligand_coords[0, new_perm[i_atm] - 1] = temp_coord
+
+    return ligand_coords
