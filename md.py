@@ -18,13 +18,6 @@ def setup(force_field):
         exit()
     md_params = read_input.md(f"{input_dir}/md_params.txt")
 
-    output_dir = "md_data"
-    isExist = os.path.exists(output_dir)
-    if isExist:
-        shutil.rmtree(output_dir)
-    os.makedirs(output_dir)
-    shutil.copy2(f"./{input_dir}/md_params.txt", f"./{output_dir}/")
-
     temp = md_params["temp"]
     ts = md_params["ts"]
     bias = md_params["bias"]
@@ -119,9 +112,22 @@ def setup(force_field):
     if ensemble == "nvt":
         simulation.context.setVelocitiesToTemperature(temp*kelvin)
 
-    return simulation, system, output_dir, md_params, gro, top, ml_force
+    return simulation, system, md_params, gro, top, ml_force
 
-def simulate(simulation, system, force_field, output_dir, md_params, gro, top, ml_force):
+def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
+
+    if md_params["D_sample"]:
+        output_dir = "md_data_train"
+        isExist = os.path.exists(output_dir)
+        if isExist:
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
+    else:
+        output_dir = "md_data"
+        isExist = os.path.exists(output_dir)
+        if isExist:
+            shutil.rmtree(output_dir)
+        os.makedirs(output_dir)
 
     n_steps = md_params["n_steps"]
     print_trj = md_params["print_trj"]
@@ -198,15 +204,26 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         D_conv = md_params["D_conv"]
         D_cut = md_params["D_cut"]
         f6 = open(f"./{output_dir}/dataset_size.txt", "w")
+        output_dir2 = "md_data_rejected"
+        isExist = os.path.exists(output_dir2)
+        if isExist:
+            shutil.rmtree(output_dir2)
+        os.makedirs(output_dir2)
         n_structure = np.zeros((n_steps))
+        f1_val = open(f"./{output_dir2}/coords.txt", 'w')
+        f2_val = open(f"./{output_dir2}/forces.txt", 'w')
+        f3_val = open(f"./{output_dir2}/velocities.txt", 'w')
+        f4_val = open(f"./{output_dir2}/energies.txt", 'w')
+        f5_val = open(f"./{output_dir2}/charges.txt", 'w')
         if md_params["shuffle_perm"]:
             print("Shuffle permutationally equivalent atoms.")
             n_perm_grp, perm_atm, n_symm, n_symm_atm = \
                 read_input.perm("md_input/permutations.txt")
-            print(n_perm_grp, perm_atm, n_symm, n_symm_atm)
+
+        # here we will open files to save validation dataset
 
     for i in range(n_steps):
-        print_coords = False
+
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
@@ -264,12 +281,12 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
         if md_params["D_sample"]:
             # get the distance matrix for the first structure and add to dataset arrau
             if i == 0:
-                mat_d = analysis.get_rij(ligand_coords,ligand_coords.shape[1],1)
-                print_coords = True
+                accept = True
+                mat_d = analysis.get_rij(ligand_coords,ligand_n_atom,1)
                 size = 1 # count number of structures in dataset
-                print(i, size)
 
             if i > D_start:
+                accept = False
                 if (i % print_data) == 0:
                     # shuffle permutations
                     ligand_coords = permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm)
@@ -277,21 +294,24 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
                     mat_r = analysis.get_rij(ligand_coords,ligand_n_atom, 1)
                     # compare to all other distance matrices
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
-                    print_coords = d_sample(test_mat_d, D_cut)
+                    accept = d_sample(test_mat_d, D_cut)
 
-                    # save structure
-                    if print_coords:
+                    # save structure to training dataset
+                    if accept:
                         mat_d = np.append(mat_d, mat_r, axis=0)
                         size = mat_d.shape[0]   # count number of structures in dataset
-                        # TODO: print success rate of accepted structures? print average d over time?
-                        print(i, size)
                         sys.stdout.flush()
 
-        # print as normal if not using distance matrix sampling
-        elif (i % print_data) == 0 or i == 0:
-            print_coords = True
+        if (i % print_trj) == 0:
+            time = simulation.context.getState().getTime().in_units_of(picoseconds)
+            vels = simulation.context.getState(getVelocities=True).\
+                getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
+            coords = coords / nanometer
+            vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
+            write_output.grotrj(tot_n_atom, residues, vectors, time,
+                coords, vels, gro.atomNames, output_dir, "output")
 
-        if print_coords:
+        if (i % print_data) == 0:
             state = simulation.context.getState(getEnergy=True)
             vels = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
@@ -304,29 +324,34 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
             else:
                 PE = state.getPotentialEnergy() / kilocalories_per_mole
 
-            np.savetxt(f1, coords[:ligand_n_atom])
-            np.savetxt(f2, forces[:ligand_n_atom])
-            np.savetxt(f3, vels[:ligand_n_atom])
-            f4.write(f"{PE}\n")
-            np.savetxt(f5, charges[:ligand_n_atom])
+            # add structure to validation set if doing D-matrix sampling and not accepted into training dataset
+            if md_params["D_sample"] and not accept:
+                np.savetxt(f1_val, ligand_coords[0][:ligand_n_atom])
+                np.savetxt(f2_val, forces[:ligand_n_atom])
+                np.savetxt(f3_val, vels[:ligand_n_atom])
+                f4_val.write(f"{PE}\n")
+                np.savetxt(f5_val, charges[:ligand_n_atom])
+            else:
+                np.savetxt(f1, ligand_coords[0][:ligand_n_atom])
+                np.savetxt(f2, forces[:ligand_n_atom])
+                np.savetxt(f3, vels[:ligand_n_atom])
+                f4.write(f"{PE}\n")
+                np.savetxt(f5, charges[:ligand_n_atom])
+
+            # convergence check wrt to number of structures
             if md_params["D_sample"]:
-                f6.write(f"{i} {size}\n")
-
-        if (i % print_trj) == 0:
-            time = simulation.context.getState().getTime().in_units_of(picoseconds)
-            vels = simulation.context.getState(getVelocities=True).\
-                getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
-            coords = coords / nanometer
-            vectors = gro.getUnitCellDimensions().value_in_unit(nanometer)
-            write_output.grotrj(tot_n_atom, residues, vectors, time,
-                coords, vels, gro.atomNames, output_dir, "output")
-
-        # convergence check wrt to number of structures
-        if md_params["D_sample"]:
-            n_structure[i] = size
-            if n_structure[i] == n_structure[i-D_conv]:
-                print("Dataset size has converged. Ending MD simulation.")
-                break
+                n_structure[i] = size
+                if i == 0:
+                    accept_fract = 1.0
+                else:
+                    accept_fract = size/((i/print_data)+1)
+                if accept:
+                    print(i, size, accept_fract)
+                    f6.write(f"{i} {size} {accept_fract}\n")
+                if n_structure[i] == n_structure[i-D_conv]:
+                    f6.write(f"{i} {size} {accept_fract}\n")
+                    print("Dataset size has converged. Ending MD simulation.")
+                    break
 
     f1.close()
     f2.close()
@@ -334,6 +359,11 @@ def simulate(simulation, system, force_field, output_dir, md_params, gro, top, m
     f4.close()
     f5.close()
     f6.close()
+    f1_val.close()
+    f2_val.close()
+    f3_val.close()
+    f4_val.close()
+    f5_val.close()
     return None
 
 

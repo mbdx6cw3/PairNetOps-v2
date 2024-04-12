@@ -9,7 +9,7 @@ __status__ = 'Development'
 
 def main():
     import analysis, md, read_input, write_output
-    import os, shutil
+    import os, shutil, random
     import numpy as np
     from network import Network
     from datetime import datetime
@@ -49,11 +49,11 @@ def main():
         print("Running MD Simulation...")
 
         # setup simulation
-        simulation, system, output_dir, md_params, gro, top, ml_force = md.setup(force_field)
+        simulation, system, md_params, gro, top, ml_force = md.setup(force_field)
 
         # run simulation
         startTime = datetime.now()
-        md.simulate(simulation, system, force_field, output_dir, md_params, gro, top, ml_force)
+        md.simulate(simulation, system, force_field, md_params, gro, top, ml_force)
         print(datetime.now() - startTime)
 
     elif input_flag == 2:
@@ -417,6 +417,8 @@ def main():
              [1] - ...by Dihedral Rotation.
              [2] - ...by Structure Selection using Index List.
              [3] - ...by Structure Selection using Distance Matrix RMSD (D).
+             [4] - ...by Random Structure Selection.
+             [5] - ...by Merging Two Existing Datasets.
              > """))
 
         if option_flag == 1:
@@ -504,7 +506,7 @@ def main():
             mol = read_input.Molecule()
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
-            # read list of structure indices TODO: put this into a module
+            # read list of structure indices TODO: put this into a function
             indices = np.loadtxt("split_indices.dat", dtype=int)
             new_energies = np.take(mol.energies, indices, axis=0)
             new_coords = np.take(mol.coords, indices, axis=0)
@@ -570,19 +572,8 @@ def main():
                 if not delete[i]:
                     keep_list.append(i)
 
-            # for remaining structures calculate average D_ij
-            #D_sum = 0
-            #count = 0
-            #for i in range(size):
-            #    if not delete[i]:
-            #        for j in range(i):
-            #            if not delete[j]:
-            #                count += 1
-
             indices = np.array(keep_list)
             print("Number of structures remaining = ", indices.shape[0])
-            #n_pairs = (indices.shape[0] * (indices.shape[0] - 1))/2
-            #print("Mean D in new dataset = ", D_sum/n_pairs, "Angstrom")
 
             new_energies = np.take(mol.energies, indices, axis=0)
             new_coords = np.take(mol.coords, indices, axis=0)
@@ -597,6 +588,102 @@ def main():
                     print(*new_coords[item, atom], file=coord_file)
                     print(*new_forces[item, atom], file=force_file)
                     print(new_charges[item, atom], file=charge_file)
+
+        elif option_flag == 4:
+            print("Generate a New Dataset by Random Structure Selection.")
+
+            while True:
+                try:
+                    size = int(input("Enter number of structures in old dataset > "))
+                    # init = int(input("Enter the initial structure > "))
+                    # space = int(input("Enter spacing between structures > "))
+                    init = 0
+                    space = 1
+                    break
+                except ValueError:
+                    print("Invalid Value")
+
+            final_size = int(input("Enter number of structures in new dataset > "))
+
+            input_dir = "md_data_rejected"
+            isExist = os.path.exists(input_dir)
+            if not isExist:
+                print("Error - no input files in the working directory")
+                exit()
+
+            output_dir = "md_data_val"
+            isExist = os.path.exists(output_dir)
+            if isExist:
+                shutil.rmtree(output_dir)
+            os.makedirs(output_dir)
+
+            mol = read_input.Molecule()
+            read_input.Dataset(mol, size, init, space, input_dir, "txt")
+
+            # generate distinct list of random numbers
+            indices = []
+            for i in range(final_size):
+                while True:
+                    test_index = random.randint(0, size)
+                    if test_index not in indices:
+                        indices.append(test_index)
+                        break
+
+            new_energies = np.take(mol.energies, indices, axis=0)
+            new_coords = np.take(mol.coords, indices, axis=0)
+            new_forces = np.take(mol.forces, indices, axis=0)
+            new_charges = np.take(mol.charges, indices, axis=0)
+            np.savetxt(f"./{output_dir}/energies.txt", new_energies, fmt="%.10f")
+            coord_file = open(f"./{output_dir}/coords.txt", "w")
+            force_file = open(f"./{output_dir}/forces.txt", "w")
+            charge_file = open(f"./{output_dir}/charges.txt", "w")
+            for item in range(len(indices)):
+                for atom in range(mol.n_atom):
+                    print(*new_coords[item, atom], file=coord_file)
+                    print(*new_forces[item, atom], file=force_file)
+                    print(new_charges[item, atom], file=charge_file)
+
+        elif option_flag == 5:
+            print("Generate a New Dataset by Merging Two Datasets")
+
+            input_dir1 = "md_data_train"
+            isExist = os.path.exists(input_dir1)
+            if not isExist:
+                print("Error - no input files in the working directory")
+                exit()
+
+            input_dir2 = "md_data_val"
+            isExist = os.path.exists(input_dir2)
+            if not isExist:
+                print("Error - no input files in the working directory")
+                exit()
+
+            output_dir = "md_data"
+            isExist = os.path.exists(output_dir)
+            if isExist:
+                shutil.rmtree(output_dir)
+            os.makedirs(output_dir)
+
+            filenames = [f"./{input_dir1}/energies.txt", f"./{input_dir2}/energies.txt"]
+            with open(f"./{output_dir}/energies.txt", 'w') as outfile:
+                for fname in filenames:
+                    with open(fname) as infile:
+                        outfile.write(infile.read())
+            filenames = [f"./{input_dir1}/coords.txt", f"./{input_dir2}/coords.txt"]
+            with open(f"./{output_dir}/coords.txt", 'w') as outfile:
+                for fname in filenames:
+                    with open(fname) as infile:
+                        outfile.write(infile.read())
+            filenames = [f"./{input_dir1}/forces.txt", f"./{input_dir2}/forces.txt"]
+            with open(f"./{output_dir}/forces.txt", 'w') as outfile:
+                for fname in filenames:
+                    with open(fname) as infile:
+                        outfile.write(infile.read())
+            filenames = [f"./{input_dir1}/charges.txt", f"./{input_dir2}/charges.txt"]
+            with open(f"./{output_dir}/charges.txt", 'w') as outfile:
+                for fname in filenames:
+                    with open(fname) as infile:
+                        outfile.write(infile.read())
 
     elif input_flag == 5:
         print("Reformat an Existing Dataset.")
