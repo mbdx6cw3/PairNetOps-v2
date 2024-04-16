@@ -18,6 +18,12 @@ def setup(force_field):
         exit()
     md_params = read_input.md(f"{input_dir}/md_params.txt")
 
+    output_dir = "md_data"
+    isExist = os.path.exists(output_dir)
+    if isExist:
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
+
     temp = md_params["temp"]
     ts = md_params["ts"]
     bias = md_params["bias"]
@@ -112,15 +118,9 @@ def setup(force_field):
     if ensemble == "nvt":
         simulation.context.setVelocitiesToTemperature(temp*kelvin)
 
-    return simulation, system, md_params, gro, top, ml_force
+    return simulation, system, md_params, gro, top, ml_force, output_dir
 
-def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
-
-    output_dir = "md_data"
-    isExist = os.path.exists(output_dir)
-    if isExist:
-        shutil.rmtree(output_dir)
-    os.makedirs(output_dir)
+def simulate(simulation, system, force_field, md_params, gro, top, ml_force, output_dir):
 
     n_steps = md_params["n_steps"]
     print_trj = md_params["print_trj"]
@@ -291,9 +291,12 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
                     n_reject = 0
 
                 else:
-                    # shuffle permutations
-                    ligand_coords = permute(ligand_coords, n_perm_grp,
-                                            perm_atm, n_symm, n_symm_atm)
+                    if md_params["shuffle_perm"]:
+                        # shuffle permutations
+                        ligand_coords = permute(ligand_coords, n_perm_grp,
+                                perm_atm, n_symm, n_symm_atm)
+                        print("hello")
+
                     # get distance matrix for this structure
                     mat_r = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
                     # compare to all other distance matrices
