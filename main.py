@@ -589,6 +589,7 @@ def main():
                     print(*new_forces[item, atom], file=force_file)
                     print(new_charges[item, atom], file=charge_file)
 
+        # TODO: remove 4 and 5?
         elif option_flag == 4:
             print("Generate a New Dataset by Random Structure Selection.")
 
@@ -605,13 +606,13 @@ def main():
 
             final_size = int(input("Enter number of structures in new dataset > "))
 
-            input_dir = "md_data_rejected"
+            input_dir = "md_data"
             isExist = os.path.exists(input_dir)
             if not isExist:
                 print("Error - no input files in the working directory")
                 exit()
 
-            output_dir = "md_data_val"
+            output_dir = "md_data_new"
             isExist = os.path.exists(output_dir)
             if isExist:
                 shutil.rmtree(output_dir)
@@ -646,19 +647,19 @@ def main():
         elif option_flag == 5:
             print("Generate a New Dataset by Merging Two Datasets")
 
-            input_dir1 = "md_data_train"
+            input_dir1 = "md_data_1"
             isExist = os.path.exists(input_dir1)
             if not isExist:
                 print("Error - no input files in the working directory")
                 exit()
 
-            input_dir2 = "md_data_val"
+            input_dir2 = "md_data_2"
             isExist = os.path.exists(input_dir2)
             if not isExist:
                 print("Error - no input files in the working directory")
                 exit()
 
-            output_dir = "md_data"
+            output_dir = "md_data_new"
             isExist = os.path.exists(output_dir)
             if isExist:
                 shutil.rmtree(output_dir)

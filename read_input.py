@@ -317,6 +317,7 @@ def md(input_file):
             params["D_start"] = int(params["D_start"])
             params["D_conv"] = int(params["D_conv"])
             params["D_cut"] = float(params["D_cut"])
+            params["n_val"] = int(params["n_val"])
             if params["shuffle_perm"].strip() == "False":
                 params["shuffle_perm"] = False
             elif params["shuffle_perm"].strip() == "True":

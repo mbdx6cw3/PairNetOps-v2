@@ -116,18 +116,11 @@ def setup(force_field):
 
 def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
 
-    if md_params["D_sample"]:
-        output_dir = "md_data_train"
-        isExist = os.path.exists(output_dir)
-        if isExist:
-            shutil.rmtree(output_dir)
-        os.makedirs(output_dir)
-    else:
-        output_dir = "md_data"
-        isExist = os.path.exists(output_dir)
-        if isExist:
-            shutil.rmtree(output_dir)
-        os.makedirs(output_dir)
+    output_dir = "md_data"
+    isExist = os.path.exists(output_dir)
+    if isExist:
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
 
     n_steps = md_params["n_steps"]
     print_trj = md_params["print_trj"]
@@ -200,21 +193,11 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
 
     if md_params["D_sample"]:
         print("Dynamic sampling based on distance matrix cut-off.")
-        D_start = md_params["D_start"]
+        f6 = open(f"./{output_dir}/dataset_size.txt", "w")
         D_conv = md_params["D_conv"]
         D_cut = md_params["D_cut"]
-        f6 = open(f"./{output_dir}/dataset_size.txt", "w")
-        output_dir2 = "md_data_rejected"
-        isExist = os.path.exists(output_dir2)
-        if isExist:
-            shutil.rmtree(output_dir2)
-        os.makedirs(output_dir2)
-        n_structure = np.zeros((n_steps))
-        f1_val = open(f"./{output_dir2}/coords.txt", 'w')
-        f2_val = open(f"./{output_dir2}/forces.txt", 'w')
-        f3_val = open(f"./{output_dir2}/velocities.txt", 'w')
-        f4_val = open(f"./{output_dir2}/energies.txt", 'w')
-        f5_val = open(f"./{output_dir2}/charges.txt", 'w')
+        n_val = md_params["n_val"]
+        n_train = np.zeros((n_steps), dtype=int)
         if md_params["shuffle_perm"]:
             print("Shuffle permutationally equivalent atoms.")
             n_perm_grp, perm_atm, n_symm, n_symm_atm = \
@@ -274,24 +257,45 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
         # advance trajectory one timestep
         simulation.step(1)
 
-        # TODO: move to start of loop?
-        ligand_coords = np.reshape(coords[:ligand_n_atom] / angstrom,(1, -1, 3))
+        if (i % print_data) == 0:
 
-        # distance matrix rmsd sampling
-        if md_params["D_sample"]:
-            # get the distance matrix for the first structure and add to dataset arrau
-            if i == 0:
-                accept = True
-                mat_d = analysis.get_rij(ligand_coords,ligand_n_atom,1)
-                size = 1 # count number of structures in dataset
+            state = simulation.context.getState(getEnergy=True)
+            vels = simulation.context.getState(getVelocities=True).\
+                getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
+            forces = simulation.context.getState(getForces=True). \
+                getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 
-            if i > D_start:
-                accept = False
-                if (i % print_data) == 0:
+            ligand_coords = np.reshape(coords[:ligand_n_atom] / angstrom, (1, -1, 3))
+
+            # predicts energies in kcal/mol
+            if force_field == "pair_net":
+                PE = prediction[1][0][0]
+            else:
+                PE = state.getPotentialEnergy() / kilocalories_per_mole
+
+            # add structure to validation set if not doing distance matrix sampling
+            if not md_params["D_sample"]:
+                np.savetxt(f1, ligand_coords[0][:ligand_n_atom])
+                np.savetxt(f2, forces[:ligand_n_atom])
+                np.savetxt(f3, vels[:ligand_n_atom])
+                f4.write(f"{PE}\n")
+                np.savetxt(f5, charges[:ligand_n_atom])
+
+            # check distance matrix RMSD
+            else:
+                # get the distance matrix for the first structure and add to dataset array
+                if i == 0:
+                    accept = True
+                    mat_d = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
+                    n_train[i] = 1  # count of number of training structures
+                    n_reject = 0
+
+                else:
                     # shuffle permutations
-                    ligand_coords = permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm)
+                    ligand_coords = permute(ligand_coords, n_perm_grp,
+                                            perm_atm, n_symm, n_symm_atm)
                     # get distance matrix for this structure
-                    mat_r = analysis.get_rij(ligand_coords,ligand_n_atom, 1)
+                    mat_r = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
                     # compare to all other distance matrices
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
                     accept = d_sample(test_mat_d, D_cut)
@@ -299,8 +303,65 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
                     # save structure to training dataset
                     if accept:
                         mat_d = np.append(mat_d, mat_r, axis=0)
-                        size = mat_d.shape[0]   # count number of structures in dataset
-                        sys.stdout.flush()
+
+                    else:
+                        n_reject += 1
+                        if n_reject == 1:
+                            val_coords = ligand_coords
+                            val_forces = np.reshape(forces[:ligand_n_atom], (1, -1, 3))
+                            val_charges = np.reshape(charges[:ligand_n_atom], (1, -1))
+                            val_energies = np.full(1, PE)
+                        else:
+                            val_coords = np.append(val_coords, ligand_coords, axis=0)
+                            val_forces = np.append(val_forces,
+                                np.reshape(forces[:ligand_n_atom], (1, -1, 3)), axis=0)
+                            val_energies = np.append(val_energies, np.full(1,PE), axis=0)
+                            val_charges = np.append(val_charges,
+                                np.reshape(charges[:ligand_n_atom], (1, -1)), axis=0)
+
+                n_train[i] = mat_d.shape[0]
+                accept_fract = n_train[i] / ((i / print_data) + 1)
+
+                if accept:
+                    np.savetxt(f1, ligand_coords[0][:ligand_n_atom])
+                    np.savetxt(f2, forces[:ligand_n_atom])
+                    f4.write(f"{PE}\n")
+                    np.savetxt(f5, charges[:ligand_n_atom])
+                    f6.write(f"{i} {n_train[i]} {accept_fract}\n")
+                    print(i, n_train[i], accept_fract)
+                    sys.stdout.flush()
+
+                if i > D_conv:
+                    if n_train[i] == n_train[i-D_conv]:
+                        f6.write(f"{i} {n_train[i]} {accept_fract}\n")
+                        print("Dataset size has converged. Ending MD simulation.")
+                        print("Number of steps = ", i)
+                        print("Fraction of total structures accepted = ", accept_fract)
+                        print("Number of rejected structures = ", n_reject)
+                        print("Number of training structures = ", n_train[i])
+                        print("Number of validation structures = ", n_val)
+
+                        # generate index list for validation set from rejected structures
+                        indices = []
+                        for i in range(n_val):
+                            while True:
+                                test_index = random.randint(0, len(val_energies)-1)
+                                if test_index not in indices:
+                                    indices.append(test_index)
+                                    break
+
+                        # append validation set to end of training set
+                        val_energies = np.take(val_energies, indices)
+                        val_coords = np.take(val_coords, indices, axis=0)
+                        val_forces = np.take(val_forces, indices, axis=0)
+                        val_charges = np.take(val_charges, indices, axis=0)
+                        np.savetxt(f1, val_coords.reshape(n_val*ligand_n_atom,3))
+                        np.savetxt(f2, val_forces.reshape(n_val*ligand_n_atom,3))
+                        np.savetxt(f4, val_energies)
+                        np.savetxt(f5, val_charges.flatten())
+
+                        # randomly sample validation structures from those rejected
+                        break
 
         if (i % print_trj) == 0:
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
@@ -311,59 +372,12 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force):
             write_output.grotrj(tot_n_atom, residues, vectors, time,
                 coords, vels, gro.atomNames, output_dir, "output")
 
-        if (i % print_data) == 0:
-            state = simulation.context.getState(getEnergy=True)
-            vels = simulation.context.getState(getVelocities=True).\
-                getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
-            forces = simulation.context.getState(getForces=True). \
-                getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
-
-            # predicts energies in kcal/mol
-            if force_field == "pair_net":
-                PE = prediction[1][0][0]
-            else:
-                PE = state.getPotentialEnergy() / kilocalories_per_mole
-
-            # add structure to validation set if doing D-matrix sampling and not accepted into training dataset
-            if md_params["D_sample"] and not accept:
-                np.savetxt(f1_val, ligand_coords[0][:ligand_n_atom])
-                np.savetxt(f2_val, forces[:ligand_n_atom])
-                np.savetxt(f3_val, vels[:ligand_n_atom])
-                f4_val.write(f"{PE}\n")
-                np.savetxt(f5_val, charges[:ligand_n_atom])
-            else:
-                np.savetxt(f1, ligand_coords[0][:ligand_n_atom])
-                np.savetxt(f2, forces[:ligand_n_atom])
-                np.savetxt(f3, vels[:ligand_n_atom])
-                f4.write(f"{PE}\n")
-                np.savetxt(f5, charges[:ligand_n_atom])
-
-            # convergence check wrt to number of structures
-            if md_params["D_sample"]:
-                n_structure[i] = size
-                if i == 0:
-                    accept_fract = 1.0
-                else:
-                    accept_fract = size/((i/print_data)+1)
-                if accept:
-                    print(i, size, accept_fract)
-                    f6.write(f"{i} {size} {accept_fract}\n")
-                if n_structure[i] == n_structure[i-D_conv]:
-                    f6.write(f"{i} {size} {accept_fract}\n")
-                    print("Dataset size has converged. Ending MD simulation.")
-                    break
-
     f1.close()
     f2.close()
     f3.close()
     f4.close()
     f5.close()
     f6.close()
-    f1_val.close()
-    f2_val.close()
-    f3_val.close()
-    f4_val.close()
-    f5_val.close()
     return None
 
 
