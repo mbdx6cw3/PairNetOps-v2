@@ -8,6 +8,7 @@ import write_output, read_input, analysis, os, shutil
 from network import Network
 import tensorflow as tf
 import random
+import re
 
 def setup(force_field):
 
@@ -26,7 +27,6 @@ def setup(force_field):
 
     temp = md_params["temp"]
     ts = md_params["ts"]
-    bias = md_params["bias"]
     ensemble = md_params["ensemble"]
     thermostat = md_params["thermostat"]
     minim = md_params["minim"]
@@ -101,10 +101,11 @@ def setup(force_field):
             # TODO: what is the difference between picoseconds and picosecond?
 
     # define biasing potentials
-    if bias:
+    if md_params["bias"]:
         plumed_file = open(f"{input_dir}/plumed.dat", "r")
         plumed_script = plumed_file.read()
         system.addForce(PlumedForce(plumed_script))
+        plumed_file.close()
 
     # set up simulation
     simulation = Simulation(top.topology, system, integrator)
@@ -191,6 +192,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     PE = state.getPotentialEnergy() / kilocalories_per_mole
     print("Initial Potential Energy: ", PE, "kcal/mol")
 
+    # sampling using the distance matrix RMSD
     if md_params["D_sample"]:
         print("Dynamic sampling based on distance matrix RMSD cut-off.")
         f6 = open(f"./{output_dir}/dataset_size.txt", "w")
@@ -200,10 +202,28 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         n_val = md_params["n_val"]
         n_bin_dih = md_params["n_bin"]
         n_train = np.zeros((n_steps), dtype=int)
+
         if md_params["shuffle_perm"]:
             print("Shuffle permutationally equivalent atoms.")
             n_perm_grp, perm_atm, n_symm, n_symm_atm = \
                 read_input.perm("md_input/permutations.txt")
+
+        # get collective variable indices from plumed file
+        plumed_file = open(f"md_input/plumed.dat", "r")
+        n_CV = 0
+        for line in plumed_file:
+            if "TORSION ATOMS=" in line:
+                plumed_text = re.split(r",|\n|=", line)
+                indices = [eval(i)-1 for i in plumed_text[-5:-1]]
+                n_CV += 1
+                if n_CV == 1:
+                    CV_list = np.empty(shape=[n_CV, 4], dtype=int)
+                    CV_list[n_CV-1] = np.array(indices)
+                else:
+                    CV_list = np.append(CV_list, np.reshape(np.array(
+                        indices), (1, 4)), axis=0)
+                n_CV += 1
+        plumed_file.close()
 
     for i in range(n_steps):
 
@@ -291,13 +311,11 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     n_reject = 0 # counter for number of rejected structures
 
                     # setup for monitoring coverage convergence here
-                    # TODO: the 2 here defines the dimensionality - get this and indices from plumed instead
-                    # TODO: dimensionality of pop will depend on number of CVs.
-                    CV_list = analysis.getCVs(2)
                     n_bin = n_bin_dih ** CV_list.shape[0]
                     CV_dims = [n_bin] * CV_list.shape[0]
                     pop = np.zeros(shape=CV_dims)
                     conf_cover = np.zeros((n_steps), dtype=float)
+                    print()
 
                     # populate coverage counter
                     pop = get_cover(CV_list, ligand_coords, n_bin_dih, pop)
@@ -309,9 +327,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                         ligand_coords = permute(ligand_coords, n_perm_grp,
                                 perm_atm, n_symm, n_symm_atm)
 
-                    # get distance matrix for this structure
+                    # get distance matrix for this structure, compare to othr structure
                     mat_r = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
-                    # compare to all other distance matrices
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
                     accept = d_sample(test_mat_d, rmsd_cut)
 
@@ -346,7 +363,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     f4.write(f"{PE}\n")
                     np.savetxt(f5, charges[:ligand_n_atom])
                     f6.write(f"{time} {n_train[i]} {accept_fract} {conf_cover[i]}\n")
-                    print("{:.2f} {:8d} {:.4f} {:.2f}"
+                    print("{:.2f} {:8d} {:.4f} {:.1f}"
                           .format(time, n_train[i], accept_fract, conf_cover[i]))
                     sys.stdout.flush()
 
