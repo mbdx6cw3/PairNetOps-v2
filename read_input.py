@@ -314,10 +314,10 @@ def md(input_file):
 
     if params["D_sample"]:
         try:
-            params["D_start"] = int(params["D_start"])
-            params["D_conv"] = int(params["D_conv"])
-            params["D_cut"] = float(params["D_cut"])
+            params["cover_conv"] = int(params["cover_conv"])
+            params["rmsd_cut"] = float(params["rmsd_cut"])
             params["n_val"] = int(params["n_val"])
+            params["n_bin"] = int(params["n_bin"])
             if params["shuffle_perm"].strip() == "False":
                 params["shuffle_perm"] = False
             elif params["shuffle_perm"].strip() == "True":

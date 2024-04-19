@@ -8,7 +8,7 @@ from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
 from tensorflow.keras.optimizers import Adam, RMSprop
-import shap
+#import shap
 
 # suppress printing of information messages
 tf.get_logger().setLevel("ERROR")
@@ -350,11 +350,6 @@ class Network(object):
         np.savetxt(f"./{output_dir}/q_test.dat", np.column_stack((
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
-        #for s in range(len(test_output_E)):
-        #    for atm in range(mol.n_atom):
-        #        error = abs(test_output_q[s][atm] - corr_prediction[s][atm])
-        #        if error > 0.25:
-        #            print(s,atm,test_output_q[s][atm],net_charge[0])
 
         # electrostatic energy test output
         elec_prediction = analysis.electrostatic_energy(corr_prediction, test_coords)

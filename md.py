@@ -192,18 +192,18 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     print("Initial Potential Energy: ", PE, "kcal/mol")
 
     if md_params["D_sample"]:
-        print("Dynamic sampling based on distance matrix cut-off.")
+        print("Dynamic sampling based on distance matrix RMSD cut-off.")
         f6 = open(f"./{output_dir}/dataset_size.txt", "w")
-        D_conv = md_params["D_conv"]
-        D_cut = md_params["D_cut"]
+        f6.write("time (ps) | n_train | accept_ratio | conf_cover")
+        cover_conv = md_params["cover_conv"]
+        rmsd_cut = md_params["rmsd_cut"]
         n_val = md_params["n_val"]
+        n_bin_dih = md_params["n_bin"]
         n_train = np.zeros((n_steps), dtype=int)
         if md_params["shuffle_perm"]:
             print("Shuffle permutationally equivalent atoms.")
             n_perm_grp, perm_atm, n_symm, n_symm_atm = \
                 read_input.perm("md_input/permutations.txt")
-
-        # here we will open files to save validation dataset
 
     for i in range(n_steps):
 
@@ -287,25 +287,39 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 if i == 0:
                     accept = True
                     mat_d = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
-                    n_train[i] = 1  # count of number of training structures
-                    n_reject = 0
+                    n_train[i] = 1  # counter for number of training structures
+                    n_reject = 0 # counter for number of rejected structures
+
+                    # setup for monitoring coverage convergence here
+                    # TODO: the 2 here defines the dimensionality - get this and indices from plumed instead
+                    # TODO: dimensionality of pop will depend on number of CVs.
+                    CV_list = analysis.getCVs(2)
+                    n_bin = n_bin_dih ** CV_list.shape[0]
+                    CV_dims = [n_bin] * CV_list.shape[0]
+                    pop = np.zeros(shape=CV_dims)
+                    conf_cover = np.zeros((n_steps), dtype=float)
+
+                    # populate coverage counter
+                    pop = get_cover(CV_list, ligand_coords, n_bin_dih, pop)
+                    conf_cover[i] = 100.0 * np.count_nonzero(pop) / n_bin
 
                 else:
                     if md_params["shuffle_perm"]:
                         # shuffle permutations
                         ligand_coords = permute(ligand_coords, n_perm_grp,
                                 perm_atm, n_symm, n_symm_atm)
-                        print("hello")
 
                     # get distance matrix for this structure
                     mat_r = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
                     # compare to all other distance matrices
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
-                    accept = d_sample(test_mat_d, D_cut)
+                    accept = d_sample(test_mat_d, rmsd_cut)
 
-                    # save structure to training dataset
+                    # save structure to training dataset, populate coverage counter
                     if accept:
                         mat_d = np.append(mat_d, mat_r, axis=0)
+                        pop = get_cover(CV_list, ligand_coords, n_bin_dih, pop)
+                        conf_cover[i] = 100.0 * np.count_nonzero(pop) / n_bin
 
                     else:
                         n_reject += 1
@@ -326,45 +340,48 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 accept_fract = n_train[i] / ((i / print_data) + 1)
 
                 if accept:
+                    time = i * md_params["ts"]
                     np.savetxt(f1, ligand_coords[0][:ligand_n_atom])
                     np.savetxt(f2, forces[:ligand_n_atom])
                     f4.write(f"{PE}\n")
                     np.savetxt(f5, charges[:ligand_n_atom])
-                    f6.write(f"{i} {n_train[i]} {accept_fract}\n")
-                    print(i, n_train[i], accept_fract)
+                    f6.write(f"{time} {n_train[i]} {accept_fract} {conf_cover[i]}\n")
+                    print("{:.2f} {:8d} {:.4f} {:.2f}"
+                          .format(time, n_train[i], accept_fract, conf_cover[i]))
                     sys.stdout.flush()
 
-                if i > D_conv:
-                    if n_train[i] == n_train[i-D_conv]:
-                        f6.write(f"{i} {n_train[i]} {accept_fract}\n")
-                        print("Dataset size has converged. Ending MD simulation.")
-                        print("Number of steps = ", i)
-                        print("Fraction of total structures accepted = ", accept_fract)
-                        print("Number of rejected structures = ", n_reject)
-                        print("Number of training structures = ", n_train[i])
-                        print("Number of validation structures = ", n_val)
+                    if i > cover_conv:
+                        if conf_cover[i] == conf_cover[i-cover_conv] or conf_cover[i] == 100.0:
+                            time = i * md_params["ts"]
+                            f6.write(f"{time} {n_train[i]} {accept_fract} {conf_cover[i]}\n")
+                            print("Dataset size has converged. Ending MD simulation.")
+                            print("Number of steps = ", i)
+                            print("Fraction of total structures accepted = ", accept_fract)
+                            print("Number of rejected structures = ", n_reject)
+                            print("Number of training structures = ", n_train[i])
+                            print("Number of validation structures = ", n_val)
+                            print("Conformational coverage =", conf_cover[i])
 
-                        # generate index list for validation set from rejected structures
-                        indices = []
-                        for i in range(n_val):
-                            while True:
-                                test_index = random.randint(0, len(val_energies)-1)
-                                if test_index not in indices:
-                                    indices.append(test_index)
-                                    break
+                            # generate index list for validation set from rejected structures
+                            indices = []
+                            for i in range(n_val):
+                                while True:
+                                    test_index = random.randint(0, len(val_energies)-1)
+                                    if test_index not in indices:
+                                        indices.append(test_index)
+                                        break
 
-                        # append validation set to end of training set
-                        val_energies = np.take(val_energies, indices)
-                        val_coords = np.take(val_coords, indices, axis=0)
-                        val_forces = np.take(val_forces, indices, axis=0)
-                        val_charges = np.take(val_charges, indices, axis=0)
-                        np.savetxt(f1, val_coords.reshape(n_val*ligand_n_atom,3))
-                        np.savetxt(f2, val_forces.reshape(n_val*ligand_n_atom,3))
-                        np.savetxt(f4, val_energies)
-                        np.savetxt(f5, val_charges.flatten())
+                            # append validation set to end of training set
+                            val_energies = np.take(val_energies, indices)
+                            val_coords = np.take(val_coords, indices, axis=0)
+                            val_forces = np.take(val_forces, indices, axis=0)
+                            val_charges = np.take(val_charges, indices, axis=0)
+                            np.savetxt(f1, val_coords.reshape(n_val*ligand_n_atom,3))
+                            np.savetxt(f2, val_forces.reshape(n_val*ligand_n_atom,3))
+                            np.savetxt(f4, val_energies)
+                            np.savetxt(f5, val_charges.flatten())
 
-                        # randomly sample validation structures from those rejected
-                        break
+                            break
 
         if (i % print_trj) == 0:
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
@@ -384,18 +401,19 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     return None
 
 
-def d_sample(mat_d, D_cut):
+def d_sample(mat_d, rmsd_cut):
     # get distance matrix for this structure and add to dataset
     print_coords = True
 
     # calculate distance matrix RMSD for last vs all others
     for j in range(mat_d.shape[0] - 1):
         D = analysis.D_rmsd(-1, j, mat_d)
-        if D < D_cut:
+        if D < rmsd_cut:
             print_coords = False
             break
 
     return print_coords
+
 
 def permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm):
     # loop through symmetry groups
@@ -413,3 +431,19 @@ def permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm):
                 ligand_coords[0, new_perm[i_atm] - 1] = temp_coord
 
     return ligand_coords
+
+
+def get_cover(CV_list, ligand_coords, n_bins, pop):
+    dih = np.empty(shape=[CV_list.shape[0]], dtype=int)
+    bin_width = 360 / n_bins
+    for i_dih in range(CV_list.shape[0]):
+        p = np.zeros([CV_list.shape[1], 3])
+        p[0:] = ligand_coords[0][CV_list[i_dih][:]]
+        dih[i_dih] = int((analysis.dihedral(p) + 180) / bin_width)
+        if dih[i_dih] == n_bins:  # this deals with 360 degree angles
+            dih[i_dih] = 0
+    # populate coverage counter
+    # TODO: how do we do this for variable dimensions???
+    pop[dih[1]][dih[0]] += 1
+    return pop
+
