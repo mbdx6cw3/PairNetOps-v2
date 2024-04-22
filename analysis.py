@@ -285,10 +285,9 @@ def pop2D(mol, n_bins, CV_list, output_dir, set_size):
             p = np.zeros([CV_list.shape[1], 3])
             p[0:] = mol.coords[item][CV_list[i_dih][:]]
             bin[i_dih] = int((dihedral(p) + 180) / bin_width)
-        if len(bin) == 1:
-            pop[bin[0]] += 1
-        elif len(bin) == 2:
-            pop[bin[1]][bin[0]] += 1
+            if bin[i_dih] == n_bins:  # this deals with 360 degree angles
+                bin[i_dih] = 0
+        pop[bin[1]][bin[0]] += 1
     pop = pop / (set_size)
     x, y = np.meshgrid(np.linspace(-180, 180, n_bins), np.linspace(-180, 180, n_bins))
     write_output.heatmap2D(x, y, pop, output_dir, "pop_2d", "gist_heat", 1)
@@ -400,7 +399,7 @@ def dihedral(p):
 def check_stability(mol, set_size, output_dir):
     # calculate bond distance list for equilibrium structure
     n_atoms = len(mol.atoms)
-    max_r = 1.50
+    max_r = 1.40
     max_bonds = n_atoms * 3
     atom_indices = np.zeros([max_bonds, 2], dtype=int)
     bond_dist = np.zeros([max_bonds], dtype=float)
@@ -413,9 +412,6 @@ def check_stability(mol, set_size, output_dir):
                 atom_indices[n_bonds][1] = j
                 bond_dist[n_bonds] = r_ij
                 n_bonds += 1
-
-    # check stability of trajectory
-    stable = True
 
     # open file for writing split indices
     stable_list = open(f"./{output_dir}/stable_structures.dat", "w")

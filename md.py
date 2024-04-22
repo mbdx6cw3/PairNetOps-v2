@@ -196,7 +196,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     if md_params["D_sample"]:
         print("Dynamic sampling based on distance matrix RMSD cut-off.")
         f6 = open(f"./{output_dir}/dataset_size.txt", "w")
-        f6.write("time (ps) | n_train | accept_ratio | conf_cover")
+        f6.write("time (ps) | n_train | accept_ratio | conf_cover\n")
         cover_conv = md_params["cover_conv"]
         rmsd_cut = md_params["rmsd_cut"]
         n_val = md_params["n_val"]
