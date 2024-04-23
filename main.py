@@ -58,7 +58,6 @@ def main():
 
     elif input_flag == 2:
 
-        # TODO: train or test a model? Incorporate linear regression?
         option_flag = int(input("""Train or Test a PairNet Potential.
              [1] - Train a network.
              [2] - Train and test a network.
