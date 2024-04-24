@@ -7,8 +7,7 @@ import numpy as np
 import write_output, read_input, analysis, os, shutil
 from network import Network
 import tensorflow as tf
-import random
-import re
+import random, math
 
 def setup(force_field):
 
@@ -209,21 +208,14 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 read_input.perm("md_input/permutations.txt")
 
         # get collective variable indices from plumed file
-        plumed_file = open(f"md_input/plumed.dat", "r")
-        n_CV = 0
-        for line in plumed_file:
-            if "TORSION ATOMS=" in line:
-                plumed_text = re.split(r",|\n|=", line)
-                indices = [eval(i)-1 for i in plumed_text[-5:-1]]
-                n_CV += 1
-                if n_CV == 1:
-                    CV_list = np.empty(shape=[n_CV, 4], dtype=int)
-                    CV_list[n_CV-1] = np.array(indices)
-                else:
-                    CV_list = np.append(CV_list, np.reshape(np.array(
-                        indices), (1, 4)), axis=0)
-                n_CV += 1
-        plumed_file.close()
+        CV_list = read_input.bias()
+
+        # setup for monitoring 2D surface coverage convergence here
+        n_bin = n_bin_dih**2
+        n_surf = int(CV_list.shape[0] * (CV_list.shape[0] - 1) / 2)
+        pop = np.zeros(shape=[n_surf, n_bin, n_bin])
+        conf_cover = np.zeros((n_surf,n_steps),dtype=float)
+        print()
 
     for i in range(n_steps):
 
@@ -305,21 +297,11 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             else:
                 # get the distance matrix for the first structure and add to dataset array
                 if i == 0:
-                    accept = True
-                    mat_d = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
+
                     n_train[i] = 1  # counter for number of training structures
                     n_reject = 0 # counter for number of rejected structures
-
-                    # setup for monitoring coverage convergence here
-                    n_bin = n_bin_dih ** CV_list.shape[0]
-                    CV_dims = [n_bin] * CV_list.shape[0]
-                    pop = np.zeros(shape=CV_dims)
-                    conf_cover = np.zeros((n_steps), dtype=float)
-                    print()
-
-                    # populate coverage counter
-                    pop = get_cover(CV_list, ligand_coords, n_bin_dih, pop)
-                    conf_cover[i] = 100.0 * np.count_nonzero(pop) / n_bin
+                    mat_d = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
+                    accept = True
 
                 else:
                     if md_params["shuffle_perm"]:
@@ -335,70 +317,83 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     # save structure to training dataset, populate coverage counter
                     if accept:
                         mat_d = np.append(mat_d, mat_r, axis=0)
-                        pop = get_cover(CV_list, ligand_coords, n_bin_dih, pop)
-                        conf_cover[i] = 100.0 * np.count_nonzero(pop) / n_bin
-
-                    else:
-                        n_reject += 1
-                        if n_reject == 1:
-                            val_coords = ligand_coords
-                            val_forces = np.reshape(forces[:ligand_n_atom], (1, -1, 3))
-                            val_charges = np.reshape(charges[:ligand_n_atom], (1, -1))
-                            val_energies = np.full(1, PE)
-                        else:
-                            val_coords = np.append(val_coords, ligand_coords, axis=0)
-                            val_forces = np.append(val_forces,
-                                np.reshape(forces[:ligand_n_atom], (1, -1, 3)), axis=0)
-                            val_energies = np.append(val_energies, np.full(1,PE), axis=0)
-                            val_charges = np.append(val_charges,
-                                np.reshape(charges[:ligand_n_atom], (1, -1)), axis=0)
-
-                n_train[i] = mat_d.shape[0]
-                accept_fract = n_train[i] / ((i / print_data) + 1)
 
                 if accept:
+
+                    n_train[i] = mat_d.shape[0]
+                    accept_fract = n_train[i] / ((i / print_data) + 1)
+
+                    i_surf = 0
+                    for i_CV in range(CV_list.shape[0]):
+                        for j_CV in range(i_CV):
+                            CV_pair = np.take(CV_list, (i_CV, j_CV), axis=0)
+                            pop[i_surf] = get_coverage(CV_pair, ligand_coords,n_bin_dih, pop[i_surf])
+                            conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf]) / n_bin
+                            i_surf += 1
+
                     time = i * md_params["ts"]
                     np.savetxt(f1, ligand_coords[0][:ligand_n_atom])
                     np.savetxt(f2, forces[:ligand_n_atom])
                     f4.write(f"{PE}\n")
                     np.savetxt(f5, charges[:ligand_n_atom])
-                    f6.write(f"{time} {n_train[i]} {accept_fract} {conf_cover[i]}\n")
-                    print("{:.2f} {:8d} {:.4f} {:.1f}"
-                          .format(time, n_train[i], accept_fract, conf_cover[i]))
+                    print_cover = [round(i, 1) for i in conf_cover[:,i].tolist()]
+                    f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                        f"{' '.join(str(j) for j in print_cover)}\n")
+                    print(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                        f"{' '.join(str(j) for j in print_cover)}")
                     sys.stdout.flush()
 
-                    if i > cover_conv:
-                        if conf_cover[i] == conf_cover[i-cover_conv] or conf_cover[i] == 100.0:
-                            time = i * md_params["ts"]
-                            f6.write(f"{time} {n_train[i]} {accept_fract} {conf_cover[i]}\n")
-                            print("Dataset size has converged. Ending MD simulation.")
-                            print("Number of steps = ", i)
-                            print("Fraction of total structures accepted = ", accept_fract)
-                            print("Number of rejected structures = ", n_reject)
-                            print("Number of training structures = ", n_train[i])
-                            print("Number of validation structures = ", n_val)
-                            print("Conformational coverage =", conf_cover[i])
+                    # TODO: we may need to accept convergence and not just 100% coverage
+                    #if i > cover_conv:
+                    #if conf_cover[i] == conf_cover[i-cover_conv] or conf_cover[i] == 100.0:
+                    if np.all(conf_cover[:,i] == 100.0):
+                        time = i * md_params["ts"]
+                        f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                            f"{' '.join(str(j) for j in print_cover)}\n")
+                        print("Dataset size has converged. Ending MD simulation.")
+                        print("Number of steps = ", i)
+                        print("Fraction of total structures accepted = ", accept_fract)
+                        print("Number of rejected structures = ", n_reject)
+                        print("Number of training structures = ", n_train[i])
+                        print("Number of validation structures = ", n_val)
+                        for i_surf in range(conf_cover.shape[0]):
+                            print(f"Conformational coverage for surface {i_surf} =",
+                                  conf_cover[i_surf][i])
 
-                            # generate index list for validation set from rejected structures
-                            indices = []
-                            for i in range(n_val):
-                                while True:
-                                    test_index = random.randint(0, len(val_energies)-1)
-                                    if test_index not in indices:
-                                        indices.append(test_index)
-                                        break
+                        # generate index list for validation set from rejected structures
+                        indices = []
+                        for i in range(n_val):
+                            while True:
+                                test_index = random.randint(0, len(val_energies) - 1)
+                                if test_index not in indices:
+                                    indices.append(test_index)
+                                    break
 
-                            # append validation set to end of training set
-                            val_energies = np.take(val_energies, indices)
-                            val_coords = np.take(val_coords, indices, axis=0)
-                            val_forces = np.take(val_forces, indices, axis=0)
-                            val_charges = np.take(val_charges, indices, axis=0)
-                            np.savetxt(f1, val_coords.reshape(n_val*ligand_n_atom,3))
-                            np.savetxt(f2, val_forces.reshape(n_val*ligand_n_atom,3))
-                            np.savetxt(f4, val_energies)
-                            np.savetxt(f5, val_charges.flatten())
+                        # append validation set to end of training set
+                        val_energies = np.take(val_energies, indices)
+                        val_coords = np.take(val_coords, indices, axis=0)
+                        val_forces = np.take(val_forces, indices, axis=0)
+                        val_charges = np.take(val_charges, indices, axis=0)
+                        np.savetxt(f1,val_coords.reshape(n_val * ligand_n_atom,3))
+                        np.savetxt(f2, val_forces.reshape(n_val * ligand_n_atom, 3))
+                        np.savetxt(f4, val_energies)
+                        np.savetxt(f5, val_charges.flatten())
+                        break
 
-                            break
+                else:
+                    n_reject += 1
+                    if n_reject == 1:
+                        val_coords = ligand_coords
+                        val_forces = np.reshape(forces[:ligand_n_atom], (1, -1, 3))
+                        val_charges = np.reshape(charges[:ligand_n_atom], (1, -1))
+                        val_energies = np.full(1, PE)
+                    else:
+                        val_coords = np.append(val_coords, ligand_coords, axis=0)
+                        val_forces = np.append(val_forces,
+                            np.reshape(forces[:ligand_n_atom], (1, -1, 3)), axis=0)
+                        val_energies = np.append(val_energies, np.full(1,PE), axis=0)
+                        val_charges = np.append(val_charges,
+                            np.reshape(charges[:ligand_n_atom], (1, -1)), axis=0)
 
         if (i % print_trj) == 0:
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
@@ -414,7 +409,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     f3.close()
     f4.close()
     f5.close()
-    f6.close()
+    if md_params["D_sample"]:
+        f6.close()
     return None
 
 
@@ -450,7 +446,7 @@ def permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm):
     return ligand_coords
 
 
-def get_cover(CV_list, ligand_coords, n_bins, pop):
+def get_coverage(CV_list, ligand_coords, n_bins, pop):
     dih = np.empty(shape=[CV_list.shape[0]], dtype=int)
     bin_width = 360 / n_bins
     for i_dih in range(CV_list.shape[0]):
@@ -460,7 +456,6 @@ def get_cover(CV_list, ligand_coords, n_bins, pop):
         if dih[i_dih] == n_bins:  # this deals with 360 degree angles
             dih[i_dih] = 0
     # populate coverage counter
-    # TODO: how do we do this for variable dimensions???
     pop[dih[1]][dih[0]] += 1
     return pop
 

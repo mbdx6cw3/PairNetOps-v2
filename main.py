@@ -64,7 +64,6 @@ def main():
              [3] - Load and train a network.
              [4] - Load, train and test a network.
              [5] - Load and test a network.
-             [6] - Linear regression.
              > """))
 
         # make new directory to store output

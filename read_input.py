@@ -2,6 +2,7 @@
 import numpy as np
 from itertools import islice
 import analysis
+import re
 
 class Molecule(object):
     '''
@@ -398,3 +399,22 @@ def perm(file_name):
         perm_file.close()
 
     return n_perm_grp, perm_atm, n_symm, n_symm_atm
+
+def bias():
+    plumed_file = open(f"md_input/plumed.dat", "r")
+    n_CV = 0
+    for line in plumed_file:
+        if "TORSION ATOMS=" in line:
+            plumed_text = re.split(r",|\n|=", line)
+            indices = [eval(i) - 1 for i in plumed_text[-5:-1]]
+            n_CV += 1
+            if n_CV == 1:
+                CV_list = np.empty(shape=[n_CV, 4], dtype=int)
+                CV_list[n_CV - 1] = np.array(indices)
+            else:
+                CV_list = np.append(CV_list, np.reshape(np.array(
+                    indices), (1, 4)), axis=0)
+            n_CV += 1
+    plumed_file.close()
+    return CV_list
+
