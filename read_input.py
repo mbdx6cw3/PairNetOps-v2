@@ -316,6 +316,8 @@ def md(input_file):
     if params["D_sample"]:
         try:
             params["cover_conv"] = int(params["cover_conv"])
+            params["cover_surf"] = params["cover_surf"].split()
+            params["cover_surf"] = [eval(i) for i in params["cover_surf"]]
             params["rmsd_cut"] = float(params["rmsd_cut"])
             params["n_val"] = int(params["n_val"])
             params["n_bin"] = int(params["n_bin"])

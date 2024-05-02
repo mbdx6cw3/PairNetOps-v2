@@ -305,6 +305,7 @@ def main():
             [2] - Get root mean squared deviation of distance matrix.
             [3] - Get 1D probability distribution of geometric variable.
             [4] - Get 2D probability distribution of geometric variable.
+            [5] - Get 3D probability distribution of geometric variable.
             > """))
 
             if geom_flag == 1:
@@ -318,6 +319,7 @@ def main():
                 rmsd_dist = analysis.rmsd_dist(mol, size)
                 print(f"Distance matrix RMSD: {np.mean(rmsd_dist)} Angstrom")
 
+            # TODO: tidy this up...
             elif geom_flag == 3:
                 print("Get 1D probability distribution of geometric variable.")
                 n_bins = int(input("Enter the number of bins > "))
@@ -329,6 +331,12 @@ def main():
                 n_bins = int(input("Enter the number of bins > "))
                 CV_list = analysis.getCVs(2)
                 analysis.pop2D(mol, n_bins, CV_list, output_dir, size)
+
+            elif geom_flag == 5:
+                print("Get 3D probability distribution of geometric variable.")
+                n_bins = int(input("Enter the number of bins > "))
+                CV_list = analysis.getCVs(3)
+                analysis.pop3D(mol, n_bins, CV_list, output_dir, size)
 
         elif option_flag == 4:
 

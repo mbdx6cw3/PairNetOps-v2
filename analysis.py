@@ -300,6 +300,29 @@ def pop2D(mol, n_bins, CV_list, output_dir, set_size):
     return None
 
 
+def pop3D(mol, n_bins, CV_list, output_dir, set_size):
+    bin_width = 360 / n_bins
+    pop = np.zeros(shape=(n_bins, n_bins, n_bins))
+    for item in range(set_size):
+        bin = np.empty(shape=[CV_list.shape[0]], dtype=int)
+        for i_dih in range(CV_list.shape[0]):
+            p = np.zeros([CV_list.shape[1], 3])
+            p[0:] = mol.coords[item][CV_list[i_dih][:]]
+            bin[i_dih] = int((dihedral(p) + 180) / bin_width)
+            if bin[i_dih] == n_bins:  # this deals with 360 degree angles
+                bin[i_dih] = 0
+        pop[bin[2]][bin[1]][bin[0]] += 1
+    pop = pop / (set_size)
+    count = 0
+    for i in range(n_bins):
+        for j in range(n_bins):
+            for k in range(n_bins):
+                if pop[i][j][k] != 0:
+                    count += 1
+    print("% of surface populated:", 100*count /(n_bins*n_bins*n_bins))
+    return None
+
+
 def pop1D(mol, n_bins, CV_list, output_dir, set_size):
     CV = np.empty(shape=[set_size])
     for item in range(set_size):

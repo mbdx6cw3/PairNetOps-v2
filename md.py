@@ -208,12 +208,22 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 read_input.perm("md_input/permutations.txt")
 
         # get collective variable indices from plumed file
+        '''
         CV_list = read_input.bias()
-
-        # setup for monitoring 2D surface coverage convergence here
         n_bin = n_bin_dih**2
         n_surf = int(CV_list.shape[0] * (CV_list.shape[0] - 1) / 2)
-        pop = np.zeros(shape=[n_surf, n_bin, n_bin])
+        '''
+
+        # get collective variable indices from md_params.txt
+        dim = int(len(md_params["cover_surf"]) / 4)
+        CV_list = np.reshape(np.array(md_params["cover_surf"]), (dim, 4))
+        n_surf = 1
+        n_bin = n_bin_dih ** dim
+
+        # setup for monitoring surface coverage convergence here
+        # TODO: loop over surfaces...
+        pop = np.zeros((n_bin_dih,) * dim)
+        pop = np.expand_dims(pop, axis=0)
         conf_cover = np.zeros((n_surf,n_steps),dtype=float)
         print()
 
@@ -323,6 +333,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     n_train[i] = mat_d.shape[0]
                     accept_fract = n_train[i] / ((i / print_data) + 1)
 
+                    '''
                     i_surf = 0
                     for i_CV in range(CV_list.shape[0]):
                         for j_CV in range(i_CV):
@@ -330,6 +341,10 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                             pop[i_surf] = get_coverage(CV_pair, ligand_coords,n_bin_dih, pop[i_surf])
                             conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf]) / n_bin
                             i_surf += 1
+                    '''
+                    i_surf = 0
+                    pop[i_surf] = get_coverage2(CV_list, ligand_coords, n_bin_dih, pop[i_surf])
+                    conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf])/n_bin
 
                     time = i * md_params["ts"]
                     np.savetxt(f1, ligand_coords[0][:ligand_n_atom])
@@ -457,5 +472,19 @@ def get_coverage(CV_list, ligand_coords, n_bins, pop):
             dih[i_dih] = 0
     # populate coverage counter
     pop[dih[1]][dih[0]] += 1
+    return pop
+
+
+def get_coverage2(CV_list, ligand_coords, n_bins, pop):
+    dih = np.empty(shape=[CV_list.shape[0]], dtype=int)
+    bin_width = 360 / n_bins
+    for i_dih in range(CV_list.shape[0]):
+        p = np.zeros([CV_list.shape[1], 3])
+        p[0:] = ligand_coords[0][CV_list[i_dih][:]]
+        dih[i_dih] = int((analysis.dihedral(p) + 180) / bin_width)
+        if dih[i_dih] == n_bins:  # this deals with 360 degree angles
+            dih[i_dih] = 0
+    # populate coverage counter
+    pop[dih[2]][dih[1]][dih[0]] += 1
     return pop
 

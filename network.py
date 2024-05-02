@@ -6,8 +6,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model, Sequential
-from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, Callback
 from tensorflow.keras.optimizers import Adam, RMSprop
+import keras as K
 #import shap
 
 # suppress printing of information messages
@@ -184,6 +185,20 @@ class Q(Layer):
         '''
         return new_q
 
+'''
+class EarlyStoppingAtMinLR(Callback):
+    def __init(self, min_lr):
+        super().__init__()
+        self.min_lr = min_lr
+
+    def on_epoch_end(self, min_lr, logs=None):
+        lr = tf.get_static_value(self.model.optimizer.lr)
+        print(lr, min_lr)
+        if lr < min_lr:
+            self.model.stop_training = True
+        return
+        '''
+
 
 class Network(object):
     def __init__(self, molecule):
@@ -236,6 +251,7 @@ class Network(object):
         val_atoms = np.tile(atoms, (len(val_coords), 1))
 
         # ann parameters
+        # TODO: change to max epochs?
         epochs = ann_params["epochs"]
         init_lr = ann_params["init_lr"]
         min_lr = ann_params["min_lr"]
@@ -252,13 +268,16 @@ class Network(object):
         else:
             loss_weight = loss_weights
 
-        # keras training variables
+        # keras training variables and callbacks
         mc = ModelCheckpoint(file_name, monitor=monitor_loss, mode='min',
                 save_best_only=True, save_weights_only=True)
         rlrop = ReduceLROnPlateau(monitor=monitor_loss, factor=lr_factor,
                 patience=lr_patience, min_lr=min_lr)
         optimizer = Adam(learning_rate=init_lr,
                 beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
+        '''
+        es = EarlyStoppingAtMinLR(min_lr)
+        '''
 
         # define loss function
         model.compile(loss={'f': 'mse', 'e': 'mse', 'q': 'mse'},
