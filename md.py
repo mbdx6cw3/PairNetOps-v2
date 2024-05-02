@@ -343,7 +343,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                             i_surf += 1
                     '''
                     i_surf = 0
-                    pop[i_surf] = get_coverage2(CV_list, ligand_coords, n_bin_dih, pop[i_surf])
+                    pop[i_surf] = get_coverage(CV_list, ligand_coords, n_bin_dih, pop[i_surf])
                     conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf])/n_bin
 
                     time = i * md_params["ts"]
@@ -471,20 +471,9 @@ def get_coverage(CV_list, ligand_coords, n_bins, pop):
         if dih[i_dih] == n_bins:  # this deals with 360 degree angles
             dih[i_dih] = 0
     # populate coverage counter
-    pop[dih[1]][dih[0]] += 1
-    return pop
-
-
-def get_coverage2(CV_list, ligand_coords, n_bins, pop):
-    dih = np.empty(shape=[CV_list.shape[0]], dtype=int)
-    bin_width = 360 / n_bins
-    for i_dih in range(CV_list.shape[0]):
-        p = np.zeros([CV_list.shape[1], 3])
-        p[0:] = ligand_coords[0][CV_list[i_dih][:]]
-        dih[i_dih] = int((analysis.dihedral(p) + 180) / bin_width)
-        if dih[i_dih] == n_bins:  # this deals with 360 degree angles
-            dih[i_dih] = 0
-    # populate coverage counter
-    pop[dih[2]][dih[1]][dih[0]] += 1
+    if CV_list.shape[0] == 2:
+        pop[dih[1]][dih[0]] += 1
+    elif CV_list.shape[0] ==3:
+        pop[dih[2]][dih[1]][dih[0]] += 1
     return pop
 
