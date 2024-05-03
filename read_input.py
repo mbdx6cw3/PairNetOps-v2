@@ -270,7 +270,7 @@ def md(input_file):
         print("***ERROR: Invalid temperature")
         exit()
     try:
-        params["n_steps"] = int(params["n_steps"])
+        params["max_steps"] = int(params["max_steps"])
     except ValueError:
         print("***ERROR: Invalid number of steps")
         exit()
@@ -308,24 +308,32 @@ def md(input_file):
     elif params["bias"].strip() == "True":
         params["bias"] = True
 
-    if params["D_sample"].strip() == "False":
-        params["D_sample"] = False
-    elif params["D_sample"].strip() == "True":
-        params["D_sample"] = True
+    if params["adaptive_sampling"].strip() == "False":
+        params["adaptive_sampling"] = False
+    elif params["adaptive_sampling"].strip() == "True":
+        params["adaptive_sampling"] = True
 
-    if params["D_sample"]:
+    if params["adaptive_sampling"]:
         try:
-            params["cover_conv"] = int(params["cover_conv"])
-            params["cover_surf"] = params["cover_surf"].split()
-            params["cover_surf"] = [eval(i) for i in params["cover_surf"]]
             params["rmsd_cut"] = float(params["rmsd_cut"])
             params["n_val"] = int(params["n_val"])
-            params["n_bin"] = int(params["n_bin"])
             if params["shuffle_perm"].strip() == "False":
                 params["shuffle_perm"] = False
             elif params["shuffle_perm"].strip() == "True":
                 params["shuffle_perm"] = True
+        except ValueError:
+            print("***ERROR: Invalid value.")
+            exit()
 
+    if params["cover_conv"].strip() == "False":
+        params["cover_conv"] = False
+    elif params["cover_conv"].strip() == "True":
+        params["cover_conv"] = True
+
+    if params["cover_conv"]:
+        try:
+            params["n_bin"] = int(params["n_bin"])
+            params["cover_surf"] = params["cover_surf"]
         except ValueError:
             print("***ERROR: Invalid value.")
             exit()
