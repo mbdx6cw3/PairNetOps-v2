@@ -334,6 +334,8 @@ def md(input_file):
         try:
             params["n_bin"] = int(params["n_bin"])
             params["cover_surf"] = params["cover_surf"]
+            params["cover_surf"] = params["cover_surf"] if type(params["cover_surf"]) \
+                is list else [params["cover_surf"]]
         except ValueError:
             print("***ERROR: Invalid value.")
             exit()

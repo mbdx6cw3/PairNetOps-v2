@@ -462,8 +462,6 @@ def get_coverage(CV_list, ligand_coords, n_bins, pop):
     for i_dih in range(CV_list.shape[0]):
         p = np.zeros([CV_list.shape[1], 3])
         p[0:] = ligand_coords[0][CV_list[i_dih][:]]
-        print(p)
-        print(analysis.dihedral(p))
         dih[i_dih] = int((analysis.dihedral(p) + 180) / bin_width)
         if dih[i_dih] == n_bins:  # this deals with 360 degree angles
             dih[i_dih] = 0
