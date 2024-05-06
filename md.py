@@ -208,6 +208,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     # get torsion surfaces from md_params.txt
     if md_params["cover_conv"]:
         print("Simulation will end when torsional surface populations have converged.")
+        converged = False
+        conv_time = int(md_params["conv_time"] / md_params["ts"])
         surf_indices = md_params["cover_surf"]
         n_surf = len(surf_indices)
         n_bin_dih = md_params["n_bin"]
@@ -323,14 +325,13 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     # get distance matrix for this structure, compare to othr structure
                     mat_r = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
-                    accept = d_sample(test_mat_d, rmsd_cut)
+                    accept = rmsd_sample(test_mat_d, rmsd_cut)
 
                     # save structure to training dataset, populate coverage counter
                     if accept:
                         mat_d = np.append(mat_d, mat_r, axis=0)
 
                 if accept:
-
                     n_train[i] = mat_d.shape[0]
                     accept_fract = n_train[i] / ((i / print_data) + 1)
 
@@ -345,7 +346,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     np.savetxt(f5, charges[:ligand_n_atom])
 
                 else:
-
+                    for i_surf in range(n_surf):
+                        conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf]) / n_bin[i_surf]
                     n_reject += 1
                     if n_reject == 1:
                         val_coords = ligand_coords
@@ -360,18 +362,23 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                         val_charges = np.append(val_charges, np.reshape(
                             charges[:ligand_n_atom], (1, -1)), axis=0)
 
-                # TODO: we may need to accept convergence and not just 100% coverage
-                #if conf_cover[i] == conf_cover[i-cover_conv] or conf_cover[i] == 100.0:
+                # conformational convergence checks
                 if accept:
+
                     if md_params["cover_conv"]:
-                        if np.any(conf_cover[:,i] != 100.0):
-                            print_cover = [round(i, 1) for i in conf_cover[:,i].tolist()]
-                            f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
-                                f"{' '.join(str(j) for j in print_cover)}\n")
-                            print(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
-                                f"{' '.join(str(j) for j in print_cover)}")
-                            sys.stdout.flush()
-                        elif np.all(conf_cover[:,i] != 100.0):
+                        if np.all(conf_cover[:, i] == 100.0):
+                            converged = True
+                        else:
+                            if i > conv_time:
+                                for i_surf in range(n_surf):
+                                    if (conf_cover[i_surf, i]-conf_cover
+                                        [i_surf, i - conv_time]) < 1.0:
+                                        converged = True
+                                    else:
+                                        converged = False
+                                        break
+
+                        if converged:
                             time = i * md_params["ts"]
                             f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
                                 f"{' '.join(str(j) for j in print_cover)}\n")
@@ -405,6 +412,14 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                             np.savetxt(f5, val_charges.flatten())
                             break
 
+                        elif not converged:
+                            print_cover = [round(i, 1) for i in conf_cover[:,i].tolist()]
+                            f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                                f"{' '.join(str(j) for j in print_cover)}\n")
+                            print(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                                f"{' '.join(str(j) for j in print_cover)}")
+                            sys.stdout.flush()
+
         if (i % print_trj) == 0:
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
             vels = simulation.context.getState(getVelocities=True).\
@@ -419,12 +434,12 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     f3.close()
     f4.close()
     f5.close()
-    if md_params["D_sample"]:
+    if md_params["adaptive_sampling"]:
         f6.close()
     return None
 
 
-def d_sample(mat_d, rmsd_cut):
+def rmsd_sample(mat_d, rmsd_cut):
     # get distance matrix for this structure and add to dataset
     print_coords = True
 

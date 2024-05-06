@@ -333,6 +333,7 @@ def md(input_file):
     if params["cover_conv"]:
         try:
             params["n_bin"] = int(params["n_bin"])
+            params["conv_time"] = int(params["conv_time"])
             params["cover_surf"] = params["cover_surf"]
             params["cover_surf"] = params["cover_surf"] if type(params["cover_surf"]) \
                 is list else [params["cover_surf"]]
