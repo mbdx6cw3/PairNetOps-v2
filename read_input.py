@@ -317,13 +317,14 @@ def md(input_file):
         try:
             params["rmsd_cut"] = float(params["rmsd_cut"])
             params["n_val"] = int(params["n_val"])
-            if params["shuffle_perm"].strip() == "False":
-                params["shuffle_perm"] = False
-            elif params["shuffle_perm"].strip() == "True":
-                params["shuffle_perm"] = True
         except ValueError:
             print("***ERROR: Invalid value.")
             exit()
+
+    if params["shuffle_perm"].strip() == "False":
+        params["shuffle_perm"] = False
+    elif params["shuffle_perm"].strip() == "True":
+        params["shuffle_perm"] = True
 
     if params["cover_conv"].strip() == "False":
         params["cover_conv"] = False

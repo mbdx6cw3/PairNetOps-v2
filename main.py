@@ -473,6 +473,7 @@ def main():
             CV_list = analysis.getCVs(1)
 
             new_coords = analysis.rotate_dihedral(mol, CV_list[0])
+
             output_dir = "qm_data"
             isExist = os.path.exists(output_dir)
             if not isExist:
@@ -577,6 +578,7 @@ def main():
                 # if structure i wasn't deleted keep it in the dataset
                 if not delete[i]:
                     keep_list.append(i)
+
 
             indices = np.array(keep_list)
             print("Number of structures remaining = ", indices.shape[0])

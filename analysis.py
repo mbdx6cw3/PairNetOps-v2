@@ -529,7 +529,7 @@ def rotate_dihedral(mol, CV_list):
 
     coord = np.empty(shape=[set_size, mol.n_atom, 3])
     # loop through all structures
-    for i_angle in range(1, set_size):
+    for i_angle in range(set_size):
         coord[i_angle] = mol.coords[0]
         # determine rotation angle for this structure (radians)
         # add option to do reverse scan (times by -1)
