@@ -162,6 +162,8 @@ def gau(mol, coords, output_dir, opt, CV_list):
         gaussian_opt = open(f"./gaussian_opt.txt", "r")
         text = gaussian_opt.read().strip('\n')
         CV_list = [i + 1 for i in CV_list]
+        CV_text = " \n" + " ".join(str(i) for i in CV_list) + " B \n" \
+            + " ".join(str(i) for i in CV_list) + " F \n"
     else:
         # read input text section
         gaussian_spe = open(f"./gaussian_spe.txt", "r")
@@ -177,8 +179,9 @@ def gau(mol, coords, output_dir, opt, CV_list):
                          f"{coords[item,atom,1]:.8f} " \
                          f"{coords[item,atom,2]:.8f} \n"
             coord_text = coord_text + coord_atom
-        coord_text = coord_text + " \n" + " ".join(str(i) for i in CV_list) + " B \n" \
-            + " ".join(str(i) for i in CV_list) + " F \n"
+
+        if opt:
+            coord_text = coord_text + CV_text
 
         new_text = new_text.replace("COORDS", coord_text)
         qm_file = open(f"./{output_dir}/mol_{item+1}.gjf", "w")
