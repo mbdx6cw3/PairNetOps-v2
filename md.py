@@ -345,9 +345,29 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     f4.write(f"{PE}\n")
                     np.savetxt(f5, charges[:ligand_n_atom])
 
+                    print_cover = [round(i, 1) for i in conf_cover[:,i].tolist()]
+                    f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                        f"{' '.join(str(j) for j in print_cover)}\n")
+                    print(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                        f"{' '.join(str(j) for j in print_cover)}")
+                    sys.stdout.flush()
+
+                    # check convergence each time new structure is generated
+                    if md_params["cover_conv"]:
+                        if n_train[i] >= 10:
+                            if np.all(conf_cover[:, i] == 100.0):
+                                converged = True
+                            else:
+                                if i > conv_time:
+                                    for i_surf in range(n_surf):
+                                        if (conf_cover[i_surf, i]-conf_cover
+                                            [i_surf, i - conv_time]) < 1.0:
+                                            converged = True
+                                        else:
+                                            converged = False
+                                            break
+
                 else:
-                    for i_surf in range(n_surf):
-                        conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf]) / n_bin[i_surf]
                     n_reject += 1
                     if n_reject == 1:
                         val_coords = ligand_coords
@@ -363,68 +383,41 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                             charges[:ligand_n_atom], (1, -1)), axis=0)
 
                 # conformational convergence checks
-                if accept:
+                if converged:
+                    indices = []
+                    for i in range(n_val):
+                        while True:
+                            test_index = random.randint(0, len(val_energies) - 1)
+                            if test_index not in indices:
+                                indices.append(test_index)
+                                break
 
-                    if md_params["cover_conv"]:
-                        if np.all(conf_cover[:, i] == 100.0):
-                            converged = True
-                        else:
-                            if i > conv_time:
-                                for i_surf in range(n_surf):
-                                    if (conf_cover[i_surf, i]-conf_cover
-                                        [i_surf, i - conv_time]) < 1.0:
-                                        converged = True
-                                    else:
-                                        converged = False
-                                        break
+                    # append validation set to end of training set
+                    val_energies = np.take(val_energies, indices)
+                    val_coords = np.take(val_coords, indices, axis=0)
+                    val_forces = np.take(val_forces, indices, axis=0)
+                    val_charges = np.take(val_charges, indices, axis=0)
+                    np.savetxt(f1,val_coords.reshape(n_val * ligand_n_atom,3))
+                    np.savetxt(f2, val_forces.reshape(n_val * ligand_n_atom, 3))
+                    np.savetxt(f4, val_energies)
+                    np.savetxt(f5, val_charges.flatten())
 
-                        if converged:
-
-                            # rejected structures become validation set unless large number
-                            if val_energies.shape[0] < n_val:
-                                n_val = val_energies.shape[0]
-                            # generate index list for validation set from rejected structures
-                            else:
-                                indices = []
-                                for i in range(n_val):
-                                    while True:
-                                        test_index = random.randint(0, len(val_energies) - 1)
-                                        if test_index not in indices:
-                                            indices.append(test_index)
-                                            break
-
-                                # append validation set to end of training set
-                                val_energies = np.take(val_energies, indices)
-                                val_coords = np.take(val_coords, indices, axis=0)
-                                val_forces = np.take(val_forces, indices, axis=0)
-                                val_charges = np.take(val_charges, indices, axis=0)
-                            np.savetxt(f1,val_coords.reshape(n_val * ligand_n_atom,3))
-                            np.savetxt(f2, val_forces.reshape(n_val * ligand_n_atom, 3))
-                            np.savetxt(f4, val_energies)
-                            np.savetxt(f5, val_charges.flatten())
-
-                            time = i * md_params["ts"]
-                            f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
-                                f"{' '.join(str(j) for j in print_cover)}\n")
-                            print("Surface sampling has converged. Ending MD simulation.")
-                            print("Number of steps = ", i)
-                            print("Fraction of total structures accepted = ",accept_fract)
-                            print("Number of rejected structures = ", n_reject)
-                            print("Number of training structures = ", n_train[i])
-                            print("Number of validation structures = ", n_val)
-                            for i_surf in range(conf_cover.shape[0]):
-                                print(f"Conformational coverage for surface {i_surf} =",
-                                    conf_cover[i_surf][i])
-                            sys.stdout.flush()
-                            break
-
-                        elif not converged:
-                            print_cover = [round(i, 1) for i in conf_cover[:,i].tolist()]
-                            f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
-                                f"{' '.join(str(j) for j in print_cover)}\n")
-                            print(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
-                                f"{' '.join(str(j) for j in print_cover)}")
-                            sys.stdout.flush()
+                    conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf]) / n_bin[i_surf]
+                    n_train[i] = mat_d.shape[0]
+                    time = i * md_params["ts"]
+                    f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                        f"{' '.join(str(j) for j in print_cover)}\n")
+                    print("Surface coverage has converged. Ending MD simulation.")
+                    print("Number of steps = ", i)
+                    print("Fraction of total structures accepted = ",accept_fract)
+                    print("Number of rejected structures = ", n_reject)
+                    print("Number of training structures = ", n_train[i])
+                    print("Number of validation structures = ", n_val)
+                    for i_surf in range(conf_cover.shape[0]):
+                        print(f"Conformational coverage for surface {i_surf} =",
+                            conf_cover[i_surf][i])
+                    sys.stdout.flush()
+                    break
 
         if (i % print_trj) == 0:
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
