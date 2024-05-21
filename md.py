@@ -385,11 +385,12 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                 # conformational convergence checks
                 if converged:
-                    indices = []
                     if n_reject < n_val:
                         print("ERROR - not enough rejected structures to form validation set")
-                        exit()
+                        print(f"Validation set will have {n_reject} structures")
+                        indices = list(range(n_reject))
                     else:
+                        indices = []
                         for i in range(n_val):
                             while True:
                                 test_index = random.randint(0, len(val_energies) - 1)
