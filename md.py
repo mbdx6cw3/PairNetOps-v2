@@ -261,6 +261,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 # get charge prediction from same network as forces / energies
                 if md_params["partial_charge"] == "predicted":
                     ligand_charges = prediction[2].T
+
                 # get charge prediction from separate network
                 elif md_params["partial_charge"] == "predicted-sep":
                     charge_prediction = charge_model.predict_on_batch([np.reshape(coords[
@@ -354,7 +355,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                     # check convergence each time new structure is generated
                     if md_params["cover_conv"]:
-                        if n_train[i] >= 10:
+                        if n_train[i] >= 1000:
                             if np.all(conf_cover[:, i] == 100.0):
                                 converged = True
                             else:
@@ -385,12 +386,16 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 # conformational convergence checks
                 if converged:
                     indices = []
-                    for i in range(n_val):
-                        while True:
-                            test_index = random.randint(0, len(val_energies) - 1)
-                            if test_index not in indices:
-                                indices.append(test_index)
-                                break
+                    if n_reject < n_val:
+                        print("ERROR - not enough rejected structures to form validation set")
+                        exit()
+                    else:
+                        for i in range(n_val):
+                            while True:
+                                test_index = random.randint(0, len(val_energies) - 1)
+                                if test_index not in indices:
+                                    indices.append(test_index)
+                                    break
 
                     # append validation set to end of training set
                     val_energies = np.take(val_energies, indices)
@@ -402,7 +407,6 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     np.savetxt(f4, val_energies)
                     np.savetxt(f5, val_charges.flatten())
 
-                    conf_cover[i_surf][i] = 100.0 * np.count_nonzero(pop[i_surf]) / n_bin[i_surf]
                     n_train[i] = mat_d.shape[0]
                     time = i * md_params["ts"]
                     f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
@@ -414,6 +418,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     print("Number of training structures = ", n_train[i])
                     print("Number of validation structures = ", n_val)
                     for i_surf in range(conf_cover.shape[0]):
+                        conf_cover[i_surf][i] = 100.0 * np.count_nonzero(
+                            pop[i_surf]) / n_bin[i_surf]
                         print(f"Conformational coverage for surface {i_surf} =",
                             conf_cover[i_surf][i])
                     sys.stdout.flush()
