@@ -389,6 +389,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                         print("ERROR - not enough rejected structures to form validation set")
                         print(f"Validation set will have {n_reject} structures")
                         indices = list(range(n_reject))
+                        n_val = n_reject
                     else:
                         indices = []
                         for i in range(n_val):
@@ -404,9 +405,9 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     val_forces = np.take(val_forces, indices, axis=0)
                     val_charges = np.take(val_charges, indices, axis=0)
                     np.savetxt(f1,val_coords.reshape(n_val * ligand_n_atom,3))
-                    np.savetxt(f2, val_forces.reshape(n_val * ligand_n_atom, 3))
-                    np.savetxt(f4, val_energies)
-                    np.savetxt(f5, val_charges.flatten())
+                    np.savetxt(f2,val_forces.reshape(n_val * ligand_n_atom, 3))
+                    np.savetxt(f4,val_energies)
+                    np.savetxt(f5,val_charges.flatten())
 
                     n_train[i] = mat_d.shape[0]
                     time = i * md_params["ts"]
