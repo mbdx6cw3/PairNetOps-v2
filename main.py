@@ -340,7 +340,6 @@ def main():
                     p = np.zeros([CV_list.shape[1], 3])
                     p[0:] = mol.coords[item][CV_list[1][:]]
                     dih_2[item] = analysis.dihedral(p)
-                    print(dih_1[item], dih_2[item])
 
             elif geom_flag == 5:
                 print("Get 3D probability distribution of geometric variable.")

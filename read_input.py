@@ -94,14 +94,14 @@ class Dataset():
                 (aspirin, azobenzene, benzene, ethanol, malonaldehyde, 
                  naphthalene, paracetamol, salicylic, toluene, uracial)
                  > """))
-            if molecule.strip() == "azobenzene" or molecule == "paracetamol":
-                print("Error - molecule not in MD17 dataset")
-                exit()
 
             dataset = np.load(f"{input_dir}/{source}/{source}_{molecule}.npz")
 
             # slight differences in formatting of md17/rmd17
             if source == "md17":
+                if molecule.strip() == "azobenzene" or molecule == "paracetamol":
+                    print("Error - molecule not in MD17 dataset")
+                    exit()
                 self.coords = dataset["R"]
                 #self.energies =
                 #self.forces =
