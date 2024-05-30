@@ -355,7 +355,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                     # check convergence each time new structure is generated
                     if md_params["cover_conv"]:
-                        if n_train[i] >= 1000:
+                        if time >= 500:
                             if np.all(conf_cover[:, i] == 100.0):
                                 converged = True
                             else:

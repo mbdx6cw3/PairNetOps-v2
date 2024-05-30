@@ -224,7 +224,7 @@ def main():
                 [3] - qm_data (.out)
                 [4] - External.
                 > """))
-                if input_type > 3 or input_type < 1:
+                if input_type > 4 or input_type < 1:
                     exit("Invalid Value")
             except ValueError:
                 exit("Invalid Value")
@@ -331,6 +331,16 @@ def main():
                 n_bins = int(input("Enter the number of bins > "))
                 CV_list = analysis.getCVs(2)
                 analysis.pop2D(mol, n_bins, CV_list, output_dir, size)
+                dih_1 = np.zeros(size)
+                dih_2 = np.zeros(size)
+                for item in range(size):
+                    p = np.zeros([CV_list.shape[1], 3])
+                    p[0:] = mol.coords[item][CV_list[0][:]]
+                    dih_1[item] = analysis.dihedral(p)
+                    p = np.zeros([CV_list.shape[1], 3])
+                    p[0:] = mol.coords[item][CV_list[1][:]]
+                    dih_2[item] = analysis.dihedral(p)
+                    print(dih_1[item], dih_2[item])
 
             elif geom_flag == 5:
                 print("Get 3D probability distribution of geometric variable.")

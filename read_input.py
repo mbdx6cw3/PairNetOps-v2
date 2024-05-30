@@ -34,15 +34,15 @@ class Molecule(object):
 class Dataset():
     def __init__(self, mol, tot_size, init, space, input_dir, format):
         print("Reading dataset...")
-        if format == "txt" or format == "gau":
-            element = {1: "H", 6: "C", 7: "N", 8: "O"} # add more elements
-            self.atoms = []
-            self.atom_names = []
-            input_ = open(f"./nuclear_charges.txt", "r")
-            for atom in input_:
-                self.atoms.append(int(atom))
-                self.atom_names.append(element[self.atoms[-1]])
-            self.n_atom = len(self.atoms)
+        #if format == "txt" or format == "gau":
+        element = {1: "H", 6: "C", 7: "N", 8: "O"} # add more elements
+        self.atoms = []
+        self.atom_names = []
+        input_ = open(f"./nuclear_charges.txt", "r")
+        for atom in input_:
+            self.atoms.append(int(atom))
+            self.atom_names.append(element[self.atoms[-1]])
+        self.n_atom = len(self.atoms)
         size = tot_size - init
         if format == "txt":
             self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt",
@@ -51,7 +51,6 @@ class Dataset():
                 print("ERROR - requested set size exceeds the dataset size")
                 exit()
             length_check = np.loadtxt(f"./{input_dir}/coords.txt")
-            #TODO: this can work but needs to be more robust...
             if (length_check.shape[0]%self.n_atom) != 0:
                 print("ERROR - mismatch between molecule size and dataset size.")
                 print("Check the nuclear_charges.txt file.")
@@ -91,7 +90,7 @@ class Dataset():
                 print("Invalid Value")
                 exit()
 
-            molecule = int(input("""Enter the molecule name:
+            molecule = str(input("""Enter the molecule name:
                 (aspirin, azobenzene, benzene, ethanol, malonaldehyde, 
                  naphthalene, paracetamol, salicylic, toluene, uracial)
                  > """))
@@ -112,7 +111,7 @@ class Dataset():
                 self.coords = dataset["coords"]
                 self.energies = dataset["energies"]
                 self.forces = dataset["forces"]
-            self.charges = 0.0
+                self.charges = np.zeros((size, self.n_atom))
 
         self.elec_energies = analysis.electrostatic_energy(self.charges, self.coords)
 
