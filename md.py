@@ -187,8 +187,9 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     f3 = open(f"./{output_dir}/velocities.txt", 'w')
     f4 = open(f"./{output_dir}/energies.txt", 'w')
     f5 = open(f"./{output_dir}/charges.txt", 'w')
-    f6 = open(f"./{output_dir}/forces_ML.txt", 'w')
-    f7 = open(f"./{output_dir}/forces_MM.txt", 'w')
+    if force_field == "pair_net":
+        f6 = open(f"./{output_dir}/ML_forces.txt", 'w')
+        f7 = open(f"./{output_dir}/MM_forces.txt", 'w')
 
     # run MD simulation for requested number of timesteps
     print("Performing MD simulation...")
@@ -240,10 +241,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
-        MM_forces = simulation.context.getState(getForces=True). \
-            getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
-
         if force_field == "pair_net":
+
             # clears session to avoid running out of memory
             if (i % 1000) == 0:
                 tf.keras.backend.clear_session()
@@ -257,26 +256,21 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             ML_forces = np.reshape(prediction[0]
                 *kilocalories_per_mole/angstrom, (-1, 3))
 
-            # assign predicted forces to ML atoms
-            for j in range(ligand_n_atom):
-                ml_force.setParticleParameters(j, j, ML_forces[j])
-            ml_force.updateParametersInContext(simulation.context)
-
             # assign predicted charges to ML atoms
             # TODO: we surely don't need to do this on every step?
             # TODO: move to new function get_charges?
             if md_params["partial_charge"] != "fixed":
 
                 # TODO: md.getcharges(md_params, prediction, charge_model, etc.)?
-
                 # get charge prediction from same network as forces / energies
                 if md_params["partial_charge"] == "predicted":
                     ligand_charges = prediction[2].T
 
                 # get charge prediction from separate network
                 elif md_params["partial_charge"] == "predicted-sep":
-                    charge_prediction = charge_model.predict_on_batch([np.reshape(coords[
-                        :ligand_n_atom] / angstrom, (1, -1, 3)), np.reshape(ligand_atoms,(1, -1))])
+                    charge_prediction = charge_model.predict_on_batch(
+                        [np.reshape(coords[:ligand_n_atom] / angstrom, (1, -1, 3)),
+                         np.reshape(ligand_atoms, (1, -1))])
                     ligand_charges = charge_prediction[2].T
 
                 # correct predicted partial charges so that ligand has correct net charge
@@ -286,10 +280,18 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                 nbforce = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
                 for j in range(ligand_n_atom):
-                    [old_charge, sigma, epsilon] = nbforce.getParticleParameters(j)
+                    [old_charge, sigma,epsilon] = nbforce.getParticleParameters(j)
                     nbforce.setParticleParameters(j, ligand_charges[j], sigma, epsilon)
-                    charges[j] = ligand_charges[j] # TODO: units???
+                    charges[j] = ligand_charges[j]  # TODO: units???
                 nbforce.updateParametersInContext(simulation.context)
+
+            MM_forces = simulation.context.getState(getForces=True). \
+                getForces(asNumpy=True).in_units_of(kilocalories_per_mole/angstrom)
+
+            # assign predicted forces to ML atoms
+            for j in range(ligand_n_atom):
+                ml_force.setParticleParameters(j, j, ML_forces[j])
+            ml_force.updateParametersInContext(simulation.context)
 
         # advance trajectory one timestep
         simulation.step(1)
@@ -321,8 +323,10 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 np.savetxt(f3, vels[:ligand_n_atom])
                 f4.write(f"{PE}\n")
                 np.savetxt(f5, charges[:ligand_n_atom])
-                np.savetxt(f6, ML_forces[:ligand_n_atom])
-                np.savetxt(f7, MM_forces[:ligand_n_atom])
+                if force_field == "pair_net":
+                    np.savetxt(f6, ML_forces[:ligand_n_atom])
+                    np.savetxt(f7, MM_forces[:ligand_n_atom])
+                    #print(forces[:ligand_n_atom] - ML_forces[:ligand_n_atom] - MM_forces[:ligand_n_atom])
 
             # adaptive sampling
             else:
