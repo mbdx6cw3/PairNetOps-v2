@@ -54,7 +54,7 @@ def setup(force_field):
 
     nb = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
     ewald_tol = nb.getEwaldErrorTolerance()
-    [pme_alpha, pme_nx, pme_ny, pme_nz] = nb.getPMEParameters()
+    [pme_alpha, pme_nx, pme_ny, pme_nz] = nb.getPMEParameters() # TODO: why does this return 0s?
     nb_cut = nb.getCutoffDistance()
     alpha_ewald = (1.0 / nb_cut) * np.sqrt(-np.log(2.0 * ewald_tol))
     print("Periodic boundary conditions? ", system.usesPeriodicBoundaryConditions())
@@ -71,10 +71,13 @@ def setup(force_field):
 
     if force_field == "pair_net":
         # set exceptions for all ligand atoms
+        solv_except = nb.getNumExceptions()
+        print("Number of solvent exceptions: ", solv_except)
         for i in range(ligand_n_atom):
             for j in range(i):
                 nb.addException(i, j, 0, 1, 0)
-        print("Number of exceptions: ", nb.getNumExceptions())
+        print("Number of ligand exceptions: ", nb.getNumExceptions()-solv_except)
+        print("Total number of exceptions: ", nb.getNumExceptions())
 
         # create custom force for PairNet predictions
         ml_force = CustomExternalForce("-fx*x-fy*y-fz*z")
@@ -184,6 +187,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     f3 = open(f"./{output_dir}/velocities.txt", 'w')
     f4 = open(f"./{output_dir}/energies.txt", 'w')
     f5 = open(f"./{output_dir}/charges.txt", 'w')
+    f6 = open(f"./{output_dir}/forces_ML.txt", 'w')
+    f7 = open(f"./{output_dir}/forces_MM.txt", 'w')
 
     # run MD simulation for requested number of timesteps
     print("Performing MD simulation...")
@@ -235,6 +240,9 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         coords = simulation.context.getState(getPositions=True). \
             getPositions(asNumpy=True).in_units_of(angstrom)
 
+        MM_forces = simulation.context.getState(getForces=True). \
+            getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
+
         if force_field == "pair_net":
             # clears session to avoid running out of memory
             if (i % 1000) == 0:
@@ -246,17 +254,20 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 np.reshape(ligand_atoms,(1, -1))])
 
             # convert to OpenMM internal units
-            ligand_forces = np.reshape(prediction[0]
+            ML_forces = np.reshape(prediction[0]
                 *kilocalories_per_mole/angstrom, (-1, 3))
 
             # assign predicted forces to ML atoms
             for j in range(ligand_n_atom):
-                ml_force.setParticleParameters(j, j, ligand_forces[j])
+                ml_force.setParticleParameters(j, j, ML_forces[j])
             ml_force.updateParametersInContext(simulation.context)
 
             # assign predicted charges to ML atoms
             # TODO: we surely don't need to do this on every step?
+            # TODO: move to new function get_charges?
             if md_params["partial_charge"] != "fixed":
+
+                # TODO: md.getcharges(md_params, prediction, charge_model, etc.)?
 
                 # get charge prediction from same network as forces / energies
                 if md_params["partial_charge"] == "predicted":
@@ -310,6 +321,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 np.savetxt(f3, vels[:ligand_n_atom])
                 f4.write(f"{PE}\n")
                 np.savetxt(f5, charges[:ligand_n_atom])
+                np.savetxt(f6, ML_forces[:ligand_n_atom])
+                np.savetxt(f7, MM_forces[:ligand_n_atom])
 
             # adaptive sampling
             else:
