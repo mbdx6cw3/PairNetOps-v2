@@ -281,7 +281,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         forces = simulation.context.getState(getForces=True). \
             getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
 
-        # check MM contribution to forces (0 for ML only simulation)
+        # check MM contribution to forces (should be 0 for pure ML simulation)
         if force_field == "pair_net":
             MM_forces = forces[:ligand_n_atom] - ML_forces
 
@@ -295,7 +295,6 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
             forces = simulation.context.getState(getForces=True). \
                 getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
-
             ligand_coords = np.reshape(coords[:ligand_n_atom] / angstrom, (1, -1, 3))
 
             # predicts energies in kcal/mol
@@ -321,6 +320,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
             # adaptive sampling
             else:
+
                 # get the distance matrix for the first structure and add to dataset array
                 if i == 0:
 
@@ -363,18 +363,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                     # check convergence each time new structure is generated
                     if md_params["cover_conv"]:
-                        if time >= 500:
-                            if np.all(conf_cover[:, i] == 100.0):
-                                converged = True
-                            else:
-                                if i > conv_time:
-                                    for i_surf in range(n_surf):
-                                        if (conf_cover[i_surf, i]-conf_cover
-                                            [i_surf, i - conv_time]) < 1.0:
-                                            converged = True
-                                        else:
-                                            converged = False
-                                            break
+                        if time >= 2:
+                            converged = check_conv(i, conf_cover, conv_time)
 
                 else:
                     n_reject += 1
@@ -529,3 +519,20 @@ def predict_charges(md_params, prediction, charge_model, coords, n_atom,
         ligand_charges[atm] = ligand_charges[atm] - corr
 
     return ligand_charges
+
+
+def check_conv(i, conf_cover, conv_time):
+    n_surf = conf_cover.shape[0]
+    if np.all(conf_cover[:, i] == 100.0):
+        converged = True
+    else:
+        if i > conv_time:
+            for i_surf in range(n_surf):
+                if (conf_cover[i_surf, i] - conf_cover
+                [i_surf, i - conv_time]) < 1.0:
+                    converged = True
+                else:
+                    converged = False
+                    break
+    return converged
+
