@@ -312,6 +312,11 @@ def md(input_file):
     elif params["adaptive_sampling"].strip() == "True":
         params["adaptive_sampling"] = True
 
+    if params["dynamic_cutoff"].strip() == "False":
+        params["dynamic_cutoff"] = False
+    elif params["dynamic_cutoff"].strip() == "True":
+        params["dynamic_cutoff"] = True
+
     if params["adaptive_sampling"]:
         try:
             params["rmsd_cut"] = float(params["rmsd_cut"])

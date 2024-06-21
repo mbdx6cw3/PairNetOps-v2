@@ -203,7 +203,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     if md_params["adaptive_sampling"]:
         print("Dynamic sampling based on distance matrix RMSD cut-off.")
         f6 = open(f"./{output_dir}/dataset_size.txt", "w")
-        f6.write("time (ps) | n_train | accept_ratio | conf_cover\n")
+        f6.write("time (ps) | n_train | rmsd_cut | accept_ratio | conf_cover\n")
         rmsd_cut = md_params["rmsd_cut"]
         n_val = md_params["n_val"]
         n_train = np.zeros((max_steps), dtype=int)
@@ -226,7 +226,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         CV_list = []
         pop = []
 
-        # create list of numpy arrays defining torsion surfaces
+        # create list of arrays defining torsion surfaces
         # necessary due to varying number of dimensions in different surfaces
         for i_surf in range(n_surf):
             surf = [eval(i) - 1 for i in surf_indices[i_surf].split()]
@@ -332,6 +332,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 else:
 
                     # get distance matrix for this structure, compare to othr structure
+                    n_train[i] = n_train[i-print_data]
                     mat_r = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
                     accept = rmsd_sample(test_mat_d, rmsd_cut)
@@ -342,7 +343,15 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                 if accept:
                     n_train[i] = mat_d.shape[0]
-                    accept_fract = n_train[i] / ((i / print_data) + 1)
+
+                    # check acceptance fraction and dynamically adjust RMSD cut-off accordingly
+                    if i <= print_data*100:
+                        accept_fract = n_train[i] / ((i / print_data) + 1)
+                    else:
+                        accept_fract = (n_train[i] - n_train[i-(100*print_data)]) / 100
+                        if md_params["dynamic_cutoff"]:
+                            rmsd_factor = 1 + (accept_fract-0.5) / 10
+                            rmsd_cut = rmsd_cut * rmsd_factor
 
                     for i_surf in range(n_surf):
                         pop[i_surf] = get_coverage(CV_list[i_surf], ligand_coords, n_bin_dih, pop[i_surf])
@@ -355,15 +364,15 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     np.savetxt(f5, charges[:ligand_n_atom])
 
                     print_cover = [round(i, 1) for i in conf_cover[:,i].tolist()]
-                    f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                    f6.write(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
                         f"{' '.join(str(j) for j in print_cover)}\n")
-                    print(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                    print(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
                         f"{' '.join(str(j) for j in print_cover)}")
                     sys.stdout.flush()
 
                     # check convergence each time new structure is generated
                     if md_params["cover_conv"]:
-                        if time >= 2:
+                        if time >= 500:
                             converged = check_conv(i, conf_cover, conv_time)
 
                 else:
@@ -409,7 +418,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                     n_train[i] = mat_d.shape[0]
                     time = i * md_params["ts"]
-                    f6.write(f"{time:.2f} {n_train[i]:8d} {accept_fract:.4f} "
+                    f6.write(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
                         f"{' '.join(str(j) for j in print_cover)}\n")
                     print("Surface coverage has converged. Ending MD simulation.")
                     print("Number of steps = ", i)
