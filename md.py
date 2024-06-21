@@ -207,6 +207,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         rmsd_cut = md_params["rmsd_cut"]
         n_val = md_params["n_val"]
         n_train = np.zeros((max_steps), dtype=int)
+        if md_params["dynamic_cutoff"]:
+            rmsd_step = print_data*100
 
     if md_params["shuffle_perm"]:
         print("Shuffle permutationally equivalent atoms.")
@@ -328,14 +330,25 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     n_reject = 0 # counter for number of rejected structures
                     mat_d = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
                     accept = True
+                    accept_fract = 1.0
 
                 else:
 
-                    # get distance matrix for this structure, compare to othr structure
-                    n_train[i] = n_train[i-print_data]
                     mat_r = analysis.get_rij(ligand_coords, ligand_n_atom, 1)
                     test_mat_d = np.append(mat_d, mat_r, axis=0)
                     accept = rmsd_sample(test_mat_d, rmsd_cut)
+
+                    # get distance matrix for this structure, compare to othr structure
+                    n_train[i] = n_train[i-print_data]
+
+                    # check acceptance fraction and dynamically adjust RMSD cut-off accordingly
+                    accept_fract = n_train[i] / ((i / print_data))
+                    if md_params["dynamic_cutoff"]:
+                        if i >= rmsd_step:
+                            accept_fract = (n_train[i]-n_train[i-(rmsd_step)])/100
+                            if (i % rmsd_step) == 0:
+                                rmsd_factor = 1 + (accept_fract-0.5) / 10
+                                rmsd_cut = rmsd_cut * rmsd_factor
 
                     # save structure to training dataset, populate coverage counter
                     if accept:
@@ -343,15 +356,6 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                 if accept:
                     n_train[i] = mat_d.shape[0]
-
-                    # check acceptance fraction and dynamically adjust RMSD cut-off accordingly
-                    if i <= print_data*100:
-                        accept_fract = n_train[i] / ((i / print_data) + 1)
-                    else:
-                        accept_fract = (n_train[i] - n_train[i-(100*print_data)]) / 100
-                        if md_params["dynamic_cutoff"]:
-                            rmsd_factor = 1 + (accept_fract-0.5) / 10
-                            rmsd_cut = rmsd_cut * rmsd_factor
 
                     for i_surf in range(n_surf):
                         pop[i_surf] = get_coverage(CV_list[i_surf], ligand_coords, n_bin_dih, pop[i_surf])
