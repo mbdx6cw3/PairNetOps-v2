@@ -436,3 +436,25 @@ def bias():
     plumed_file.close()
     return CV_list
 
+
+def fes(input_dir):
+    x_count = 0
+    y_count = 0
+    with open(f"{input_dir}/fes.dat", "r") as input:
+        for line in input:
+            if line.strip():
+                if line.startswith("#"):
+                    if "nbins_phi" in line:
+                        n_bins = int(line.strip('\n').split()[-1])
+                        FE = np.zeros(shape=(n_bins, n_bins))
+                    continue
+                FE[x_count, y_count] = float(
+                    line.strip('\n').split()[2]) / 4.184
+                y_count += 1
+                if y_count == n_bins:
+                    x_count += 1
+                    y_count = 0
+                if x_count == n_bins:
+                    break
+    input.close()
+    return FE, n_bins

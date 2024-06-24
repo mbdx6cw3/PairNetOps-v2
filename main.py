@@ -419,13 +419,47 @@ def main():
             analysis.energy_corr(mol2.energies, mol1.energies, output_dir)
 
         elif option_flag == 6:
-            input_dir = "md_data"
-            isExist = os.path.exists(input_dir)
+
+            input_dir1 = "md_data"
+            isExist = os.path.exists(input_dir1)
             if not isExist:
                 print("Error - no input files in the working directory.")
                 exit()
-            print("Calculating 2D free energy surface...")
-            analysis.fes2D(input_dir, output_dir)
+            FE, n_bins = read_input.fes(input_dir1)
+            x, y = np.meshgrid(np.linspace(-180, 180, n_bins),
+                               np.linspace(-180, 180, n_bins))
+
+            zwanzig = str(input("Apply Zwanzig correction? (Y/N) > "))
+            if zwanzig == "Y":
+
+                while True:
+                    try:
+                        size = int(input("Enter the dataset size > "))
+                        break
+                    except ValueError:
+                        print("Invalid Value")
+                init = 0
+                space = 1
+
+                mol1 = read_input.Molecule()
+                read_input.Dataset(mol1, size, init, space, input_dir1, "txt")
+
+                input_dir2 = "ml_data"
+                isExist = os.path.exists(input_dir2)
+                if not isExist:
+                    print("Error - no input files in the working directory.")
+                    exit()
+                mol2 = read_input.Molecule()
+                read_input.Dataset(mol2, size, init, space, input_dir2, "txt")
+
+                CV_list = analysis.getCVs(2)
+                print("Calculating Zwanzig correction term...")
+                correction = analysis.zwanzig(mol1, mol2, CV_list, n_bins, output_dir)
+                write_output.heatmap2D(x, y, correction,output_dir, "correction", "RdBu", 0)
+                FE = FE + correction
+
+            print("Plotting 2D free energy surface...")
+            write_output.heatmap2D(x, y, FE, output_dir, "fes", "RdBu", 0)
 
     elif input_flag == 4:
         option_flag = int(input("""Generate a New Dataset...

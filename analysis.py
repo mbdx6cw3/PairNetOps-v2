@@ -1,7 +1,7 @@
 import numpy as np
 import write_output
 from scipy.stats import binned_statistic
-import random
+import random, math
 
 def dist(mol, set_size, output_dir):
     n_atom = len(mol.atoms)
@@ -247,33 +247,6 @@ def z_score(x, prescale):
     sigma = np.std(x, axis=0)
     x_norm = (x - mu) / sigma
     return x_norm, mu, sigma
-
-
-def fes2D(input_dir, output_dir):
-    x_count = 0
-    y_count = 0
-    with open(f"{input_dir}/fes.dat", "r") as input:
-        for line in input:
-            if line.strip():
-                if line.startswith("#"):
-                    if "nbins_phi" in line:
-                        n_bins_x = int(line.strip('\n').split()[-1])
-                    elif "nbins_psi" in line:
-                        n_bins_y = int(line.strip('\n').split()[-1])
-                        FE = np.zeros(shape=(n_bins_x, n_bins_y))
-                    continue
-                FE[x_count, y_count] = float(line.strip('\n').split()[2])/4.184
-                y_count += 1
-                if y_count == n_bins_y:
-                    x_count += 1
-                    y_count = 0
-                if x_count == n_bins_x:
-                    break
-    input.close()
-    x, y = np.meshgrid(np.linspace(-180, 180, n_bins_x),
-                       np.linspace(-180, 180, n_bins_y))
-    write_output.heatmap2D(x, y, FE, output_dir, "fes_2d", "RdBu", 0)
-    return None
 
 
 def pop2D(mol, n_bins, CV_list, output_dir, set_size):
@@ -696,3 +669,33 @@ def D_rmsd(i, j, mat_r):
     return D
 
 
+def zwanzig(mol1, mol2, CV_list, n_bins, output_dir):
+    RT = 300 * 8.3145 / 1000 / 4.184 # kcal/mol
+    bin_width = 360 / n_bins
+    pop = np.zeros(shape=(n_bins, n_bins))
+    bin_tot = np.zeros(shape=(n_bins, n_bins))
+    correction = np.zeros(shape=(n_bins, n_bins))
+    for i in range(len(mol1.energies)):
+        bin = np.empty(shape=[CV_list.shape[0]], dtype=int)
+        rel_qm_energy = mol2.energies[i] - np.min(mol2.energies)
+        rel_mm_energy = mol1.energies[i] - np.min(mol1.energies)
+        energy_diff = rel_qm_energy - rel_mm_energy
+        boltzmann = math.exp(-1.0*energy_diff/RT)
+        for i_dih in range(CV_list.shape[0]):
+            p = np.zeros([CV_list.shape[1], 3])
+            p[0:] = mol1.coords[i][CV_list[i_dih][:]]
+            bin[i_dih] = int((dihedral(p) + 180) / bin_width)
+            if bin[i_dih] == n_bins:
+                bin[i_dih] = 0
+        pop[bin[1]][bin[0]] = pop[bin[1]][bin[0]] + 1
+        bin_tot[bin[1]][bin[0]] = bin_tot[bin[1]][bin[0]] + boltzmann
+    for i_bin in range(n_bins):
+        for j_bin in range(n_bins):
+            correction[j_bin][i_bin] = -1.0*RT*math.log(bin_tot[j_bin][i_bin]/pop[j_bin][i_bin])
+            if correction[np.isnan(correction)]:
+                print(bin_tot[j_bin][i_bin], pop[j_bin][i_bin])
+                print("Error - bin population cannot be zero.")
+                print("Decrease free energy surface resolution.")
+                exit()
+    correction = correction - np.min(correction)
+    return correction
