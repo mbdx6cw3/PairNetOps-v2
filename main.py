@@ -719,6 +719,7 @@ def main():
         [2] - ml_data (.txt)
         [3] - gro_files (.gro)
         [4] - pdb_files (.pdb)
+        [5] - MACE (.xyz)
         > """))
         print()
 
@@ -787,6 +788,10 @@ def main():
             print("Output format: .pdb")
             output_dir = "pdb_files"
 
+        elif output_format == 5:
+            print("Output format: MACE (.xyz)")
+            output_dir = "xyz_data"
+
         # check relevant output directory exists
         isExist = os.path.exists(output_dir)
         if isExist:
@@ -803,6 +808,11 @@ def main():
             write_output.gro(mol, output_dir)
         elif output_format == 4:
             write_output.pdb(mol, output_dir, "none")
+        elif output_format == 5:
+            # unit conversions (kcal/mol --> eV)
+            mol.energies = mol.energies / 23.0605548
+            mol.forces = mol.forces / 23.060548
+            write_output.xyz(mol, output_dir)
 
 
 # Press the green button in the gutter to run the script.

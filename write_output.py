@@ -110,6 +110,32 @@ def pdb(mol, output_dir, s):
         file.close()
     return None
 
+
+def xyz(mol, output_dir):
+    '''
+    For a given set of structure 3D coords and the atom
+    associated numbers, output xyz format.
+    '''
+    xyz_file = open(f"./{output_dir}/data.xyz", "w")
+
+    for item in range(len(mol.energies)):
+        xyz_file.write(f"{mol.coords.shape[1]}\n")
+        xyz_file.write(f"\"Lattice=50.0 0.0 0.0 0.0 50.0 0.0 0.0 0.0 50.0\" "
+                       f"Properties=species:S:1:pos:R:3:forces:R:3 "
+                       f"energy={mol.energies[item]} pbc=\"F F F\"\n")
+        for atom in range(mol.coords.shape[1]):
+            rx = mol.coords[item][atom][0]
+            ry = mol.coords[item][atom][1]
+            rz = mol.coords[item][atom][2]
+            fx = mol.forces[item][atom][0]
+            fy = mol.forces[item][atom][1]
+            fz = mol.forces[item][atom][2]
+            xyz_file.write('{:4} {:11.6f} {:11.6f} {:11.6f} {:11.6} {:11.6} {:11.6}\n'.format(
+                    mol.atom_names[atom], rx, ry, rz, fx, fy, fz))
+    xyz_file.close()
+    return None
+
+
 def scurve(baseline, values, output_dir, output_file, val):
     """
     This function calculates S-curves for MM determined forces.
