@@ -124,14 +124,10 @@ def xyz(mol, output_dir):
                        f"Properties=species:S:1:pos:R:3:forces:R:3 "
                        f"energy={mol.energies[item]} pbc=\"F F F\"\n")
         for atom in range(mol.coords.shape[1]):
-            rx = mol.coords[item][atom][0]
-            ry = mol.coords[item][atom][1]
-            rz = mol.coords[item][atom][2]
-            fx = mol.forces[item][atom][0]
-            fy = mol.forces[item][atom][1]
-            fz = mol.forces[item][atom][2]
+            r = mol.coords[item][atom]
+            f = mol.forces[item][atom]
             xyz_file.write('{:4} {:11.6f} {:11.6f} {:11.6f} {:11.6} {:11.6} {:11.6}\n'.format(
-                    mol.atom_names[atom], rx, ry, rz, fx, fy, fz))
+                    mol.atom_names[atom], r[0], r[1], r[2], f[0], f[1], f[2]))
     xyz_file.close()
     return None
 
