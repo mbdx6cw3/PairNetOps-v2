@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 import numpy as np
 import write_output, os, analysis, read_input
-# this is to stop the placeholder tensor bug in TF 2.12 - remove later
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' # this is to stop the placeholder tensor bug in TF 2.12 - remove later
 import tensorflow as tf
 from tensorflow.keras.layers import Input, Dense, Layer
 from tensorflow.keras.models import Model, Sequential
 from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau, Callback
 from tensorflow.keras.optimizers import Adam, RMSprop
-import keras as K
-#import shap
 
-# suppress printing of information messages
+# suppress printing of general information messages
 tf.get_logger().setLevel("ERROR")
 print("Tensorflow version:", tf.__version__)
 
@@ -41,7 +38,7 @@ class CoordsToNRF(Layer):
         self.max_NRF = max_NRF
         self._NC2 = _NC2
         self.n_atoms = n_atoms
-        self.au2kcalmola = 627.5095 * 0.529177 #TODO: remove?
+        self.au2kcalmola = 627.5095 * 0.529177
 
 
     def compute_output_shape(self, input_shape):
@@ -62,7 +59,6 @@ class CoordsToNRF(Layer):
         diff_flat = tf.reshape(nonzero_values, shape=(tf.shape(tri)[0], -1))
         r = diff_flat ** 0.5
         recip_r2 = 1 / r ** 2
-        # TODO: this can be removed and simplified - make consistent with other
         _NRF = (((atom_nc * self.au2kcalmola) * recip_r2) / self.max_NRF) #scaled
         _NRF = tf.reshape(_NRF, shape=(tf.shape(coords)[0], self._NC2))
         return _NRF
@@ -172,32 +168,7 @@ class Q(Layer):
         elif self.charge_scheme == 2: # training on corrected charges
             sum_q = tf.reduce_sum(old_q) / self.n_atoms
             new_q = old_q - sum_q
-        '''
-        elif self.charge_scheme == 3: # training on "interatomic charges"
-            # recompose charges here (see analysis.getrecomposedcharges)
-            pass
-        elif self.charge_scheme == 4: # training on electrostatic energy (WHY?)
-            # sum all charge pairs to get electrostatic energy
-            # might need to z-normalise electrostatic energies prior to training
-            pass
-        #K.print_tensor(old_q[0], message="pred_q = ")
-        #K.print_tensor(new_q[0], message="corr_q = ")
-        '''
         return new_q
-
-'''
-class EarlyStoppingAtMinLR(Callback):
-    def __init(self, min_lr):
-        super().__init__()
-        self.min_lr = min_lr
-
-    def on_epoch_end(self, min_lr, logs=None):
-        lr = tf.get_static_value(self.model.optimizer.lr)
-        print(lr, min_lr)
-        if lr < min_lr:
-            self.model.stop_training = True
-        return
-        '''
 
 
 class Network(object):
@@ -233,19 +204,6 @@ class Network(object):
         train_charges = np.take(mol.charges, mol.train, axis=0)
         val_charges = np.take(mol.charges, mol.val, axis=0)
 
-        '''
-        pre_train = False
-        if pre_train:
-            train_energies = np.take(mol.orig_energies, mol.train, axis=0)
-            rel_energies = train_energies - min(train_energies)
-            nrfs = np.take(mol.mat_NRF, mol.train, axis=0)
-            model.fit(nrfs, rel_energies, epochs=200, verbose=2)
-            weights = model.layers[0].get_weights()[0]
-            print(nrfs.shape[0])
-            for i in range(nrfs.shape[1]):
-                print(mol.mat_i[i], mol.mat_j[i], weights[i][0])
-        '''
-
         # create arrays of nuclear charges for different sets
         train_atoms = np.tile(atoms, (len(train_coords), 1))
         val_atoms = np.tile(atoms, (len(val_coords), 1))
@@ -275,9 +233,6 @@ class Network(object):
                 patience=lr_patience, min_lr=min_lr)
         optimizer = Adam(learning_rate=init_lr,
                 beta_1=0.9, beta_2=0.999, epsilon=1e-7, amsgrad=False)
-        '''
-        es = EarlyStoppingAtMinLR(min_lr)
-        '''
 
         # define loss function
         model.compile(loss={'f': 'mse', 'e': 'mse', 'q': 'mse'},
@@ -370,7 +325,15 @@ class Network(object):
             test_output_q.flatten(), corr_prediction.flatten(),
             test_prediction[2].flatten())), delimiter=" ", fmt="%.6f")
 
+        # kernel density estimation for energies, forces and charges
+        write_output.violin(test_output_F.flatten(), test_prediction[0].flatten(),
+                            test_output_E.flatten(), test_prediction[1].flatten(),
+                            test_output_q.flatten(), corr_prediction.flatten(),
+                            output_dir, "violin_plot")
+
         # electrostatic energy test output
+        # TODO: remove this. Pointless.
+        '''
         elec_prediction = analysis.electrostatic_energy(corr_prediction, test_coords)
         test_output_elec = np.take(mol.elec_energies, mol.test, axis=0)
         mean_ae, max_ae, L = Network.summary(self, test_output_elec.flatten(),
@@ -379,8 +342,8 @@ class Network(object):
         np.savetxt(f"./{output_dir}/elec_test.dat", np.column_stack((
             test_output_elec.flatten(), elec_prediction.flatten())),
             delimiter=" ", fmt="%.6f")
+        '''
 
-        # calculate electrostatic energy and compare to reference
         return None
 
 
@@ -416,16 +379,6 @@ class Network(object):
         NRF_layer = CoordsToNRF(max_NRF, n_pairs, n_atoms, name='NRF_layer')\
                 ([coords_layer, nc_pairs_layer])
 
-        '''
-        pre_train = False
-        if pre_train:
-            model = Sequential()
-            model.add(Input(shape=(n_pairs,)))
-            model.add(Dense(1))
-            model.compile(loss="mse", optimizer=Adam(0.01), metrics=["mae"])
-            model.summary()
-        '''
-
         # define input layer as the NRFs
         connected_layer = NRF_layer
 
@@ -458,14 +411,12 @@ class Network(object):
         force = F(n_atoms, n_pairs, name='force')([energy, coords_layer])
 
         # predict partial charges
-        # TODO: move charge_scheme options into function
         if charge_scheme == 1:
             charge = Q(n_atoms, n_pairs, charge_scheme, name='charge')\
                 (output_layer2)
         elif charge_scheme == 2:
             charge = Q(n_atoms, n_pairs, charge_scheme, name ='charge')\
                 (output_layer2)
-            # TODO: charge pairs will have to take output_layer1 as input.
 
         # define the input layers and output layers used in the loss function
         model = Model(
@@ -490,14 +441,4 @@ class Network(object):
         L = write_output.scurve(all_actual.flatten(), all_prediction.flatten(),
                       output_dir, f"{label}_scurve", val)
         return mean_ae, max_ae, L
-
-
-    def feature_reduction(self, model, mol):
-        # create objection called an explainer - the object that takes as input
-        # the predict method and the training dataset
-        # in order to make SHAP model agnostic i
-        explainer = shap.KernelExplainer(model.predict, mol.train)
-        shap_values = explainer.shap_values(mol.test, nsamples=100)
-        shap.summary_plot(shap_values, mol.test)
-        pass
 

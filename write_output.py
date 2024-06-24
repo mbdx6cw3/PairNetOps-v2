@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
 
-plt.rcParams["font.size"] = 32
+plt.rcParams["font.size"] = 20
 plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams['mathtext.fontset'] = 'custom'
 plt.rcParams['mathtext.it'] = 'Times New Roman' #italic?
@@ -216,3 +216,28 @@ def dataset(mol, output_dir):
     error_file.close()
 
     return None
+
+
+def violin(force_ref, force_pred, energy_ref, energy_pred, charge_ref, charge_pred,
+           output_dir, file):
+    f_rse = force_pred - force_ref
+    e_rse = energy_pred - energy_ref
+    q_rse = charge_pred - charge_ref
+    rse = [e_rse, f_rse, q_rse]
+    fig, ax = plt.subplots()
+    extrema = False
+    means = False
+    colors = ["silver", "wheat", "lightblue"]
+    edge_color = "black"
+    labels = ["forces", "energies", "charges"]
+    plot = ax.violinplot(dataset=rse, showextrema=extrema, showmeans=means)
+    ax.set_ylim((-1, 1))
+    ax.set_xticks([y + 1 for y in range(len(rse))], labels=labels)
+    ax.tick_params(bottom=False)
+    ax.set_yticks([-1, -0.5, 0, 0.5, 1])
+    for pc, color in zip(plot['bodies'], colors):
+        pc.set_facecolor(color)
+        pc.set_edgecolor(edge_color)
+        pc.set_alpha(1)
+    plt.savefig(f"./{output_dir}/{file}.png", bbox_inches="tight")
+    return
