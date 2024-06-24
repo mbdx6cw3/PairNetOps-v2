@@ -307,16 +307,22 @@ def md(input_file):
     elif params["bias"].strip() == "True":
         params["bias"] = True
 
+    if params["force_capping"].strip() == "False":
+        params["force_capping"] = False
+    elif params["force_capping"].strip() == "True":
+        params["force_capping"] = True
+
+    if params["force_capping"]:
+        try:
+            params["force_cap"] = float(params["force_cap"])
+        except ValueError:
+            print("***ERROR: Invalid force cap")
+            exit()
+
     if params["adaptive_sampling"].strip() == "False":
         params["adaptive_sampling"] = False
     elif params["adaptive_sampling"].strip() == "True":
         params["adaptive_sampling"] = True
-
-    if params["dynamic_cutoff"].strip() == "False":
-        params["dynamic_cutoff"] = False
-    elif params["dynamic_cutoff"].strip() == "True":
-        params["dynamic_cutoff"] = True
-
     if params["adaptive_sampling"]:
         try:
             params["rmsd_cut"] = float(params["rmsd_cut"])
@@ -324,6 +330,11 @@ def md(input_file):
         except ValueError:
             print("***ERROR: Invalid value.")
             exit()
+
+        if params["dynamic_cutoff"].strip() == "False":
+            params["dynamic_cutoff"] = False
+        elif params["dynamic_cutoff"].strip() == "True":
+            params["dynamic_cutoff"] = True
 
     if params["shuffle_perm"].strip() == "False":
         params["shuffle_perm"] = False

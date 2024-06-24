@@ -193,6 +193,11 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         f6 = open(f"./{output_dir}/ML_forces.txt", 'w')
         f7 = open(f"./{output_dir}/MM_forces.txt", 'w')
 
+        # force capping
+        if md_params["force_capping"]:
+            force_cap = md_params["force_cap"]
+            print(f"Capping forces to {force_cap} kcal/mol/A")
+
     # run MD simulation for requested number of timesteps
     print("Performing MD simulation...")
     state = simulation.context.getState(getEnergy=True)
@@ -202,8 +207,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     # sampling using the distance matrix RMSD
     if md_params["adaptive_sampling"]:
         print("Dynamic sampling based on distance matrix RMSD cut-off.")
-        f6 = open(f"./{output_dir}/dataset_size.txt", "w")
-        f6.write("time (ps) | n_train | rmsd_cut | accept_ratio | conf_cover\n")
+        f8 = open(f"./{output_dir}/dataset_size.txt", "w")
+        f8.write("time (ps) | n_train | rmsd_cut | accept_ratio | conf_cover\n")
         rmsd_cut = md_params["rmsd_cut"]
         n_val = md_params["n_val"]
         n_train = np.zeros((max_steps), dtype=int)
@@ -255,9 +260,15 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             prediction = model.predict_on_batch([np.reshape(coords
                 [:ligand_n_atom]/angstrom, (1, -1, 3)),
                 np.reshape(ligand_atoms,(1, -1))])
+            ML_forces = prediction[0]
+
+            # force capping
+            if md_params["force_capping"]:
+                ML_forces[ML_forces > force_cap] = force_cap
+                ML_forces[ML_forces < -1.0*force_cap] = -1.0*force_cap
 
             # convert to OpenMM internal units
-            ML_forces = np.reshape(prediction[0]*kilocalories_per_mole/angstrom, (-1, 3))
+            ML_forces = np.reshape(ML_forces*kilocalories_per_mole/angstrom, (-1, 3))
 
             # TODO: we surely don't need to do this on every step?
             if md_params["partial_charge"] != "fixed":
@@ -342,12 +353,13 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     n_train[i] = n_train[i-print_data]
 
                     # check acceptance fraction and dynamically adjust RMSD cut-off accordingly
+                    # TODO: make accept_fract and rmsd_cut arrays so they can be monitored during simulation and averages calculated
                     accept_fract = n_train[i] / ((i / print_data))
                     if md_params["dynamic_cutoff"]:
                         if i >= rmsd_step:
                             accept_fract = (n_train[i]-n_train[i-(rmsd_step)])/100
                             if (i % rmsd_step) == 0:
-                                rmsd_factor = 1 + (accept_fract-0.5) / 10
+                                rmsd_factor = 1+(accept_fract-0.5)/100
                                 rmsd_cut = rmsd_cut * rmsd_factor
 
                     # save structure to training dataset, populate coverage counter
@@ -368,7 +380,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                     np.savetxt(f5, charges[:ligand_n_atom])
 
                     print_cover = [round(i, 1) for i in conf_cover[:,i].tolist()]
-                    f6.write(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
+                    f8.write(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
                         f"{' '.join(str(j) for j in print_cover)}\n")
                     print(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
                         f"{' '.join(str(j) for j in print_cover)}")
@@ -452,8 +464,11 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     f3.close()
     f4.close()
     f5.close()
-    if md_params["adaptive_sampling"]:
+    if force_field == "pair_net":
         f6.close()
+        f7.close()
+    if md_params["adaptive_sampling"]:
+        f8.close()
     return None
 
 
