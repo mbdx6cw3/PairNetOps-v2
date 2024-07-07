@@ -390,14 +390,24 @@ def gau(set_size, set_space, input_dir, n_atom):
                     error_term[i_file] = True
                     break
 
+            # if no forces it's probably an optimisation
+            if "force_block" not in locals():
+                zero_forces = True
+            else:
+                zero_forces = False
+
             # read atomic coordinates
             for i_atom, atom in enumerate(coord_block):
                 coords[i_file, i_atom] = atom.strip('\n').split()[-3:]
 
             # read atomic forces, convert to kcal/mol/A
-            for i_atom, atom in enumerate(force_block):
-                forces[i_file, i_atom] = atom.strip('\n').split()[-3:]
-                forces[i_file, i_atom] = forces[i_file, i_atom]*627.509608/0.529177
+            # if no forces found set them to zero
+            if not zero_forces:
+                for i_atom, atom in enumerate(force_block):
+                    forces[i_file, i_atom] = atom.strip('\n').split()[-3:]
+                    forces[i_file, i_atom] = forces[i_file, i_atom]*627.509608/0.529177
+            else:
+                forces[i_file] = np.zeros((n_atom, 3))
 
             # read partial charges
             for i_atom, atom, in enumerate(charge_block):
