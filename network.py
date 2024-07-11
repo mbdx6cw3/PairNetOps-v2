@@ -270,8 +270,6 @@ class Network(object):
     def test(self, model, mol, output_dir, ann_params, conf_test):
         '''test previously trained ANN'''
 
-        charge_scheme = ann_params["charge_scheme"]
-
         # define test set
         atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
         test_coords = np.take(mol.coords, mol.test, axis=0)
@@ -429,3 +427,11 @@ class Network(object):
                       output_dir, f"{label}_scurve", val)
         return mean_ae, max_ae, L
 
+
+    def predict(self, model, mol, indices):
+        # define test set
+        atoms = np.array([float(i) for i in mol.atoms], dtype='float32')
+        coords = np.take(mol.coords, indices, axis=0)
+        atoms = np.tile(atoms, (len(coords), 1))
+        prediction = model.predict([coords, atoms])
+        return prediction

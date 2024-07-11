@@ -64,6 +64,7 @@ def main():
              [3] - Load and train a network.
              [4] - Load, train and test a network.
              [5] - Load and test a network.
+             [6] - Load network and predict.
              > """))
 
         # make new directory to store output
@@ -102,7 +103,7 @@ def main():
             ann_test = True
         else:
             ann_test = False
-        if option_flag == 3 or option_flag == 4 or option_flag == 5 or option_flag == 6:
+        if option_flag == 3 or option_flag == 4 or option_flag == 5:
             ann_load = True
         else:
             ann_load = False
@@ -179,12 +180,6 @@ def main():
             print("Testing model...")
             network.test(model, mol, output_dir1, ann_params, conf_test)
 
-        if option_flag == 6:
-            mol.train = [*range(0, n_train, 1)]
-            mol.test = [*range(n_train + n_val, size, 1)]
-            network.feature_reduction(model, mol)
-        print("Analysis complete")
-
     elif input_flag == 3:
         print("Analyse a Dataset")
 
@@ -200,10 +195,11 @@ def main():
         [4] - Analyse Charges.
         [5] - Compare Datasets.
         [6] - Calculate Multidimensional Free Energy Surface.
+        [7] - Make Prediction with a PairNet Potential.
         > """ ))
         print()
 
-        if option_flag < 6:
+        if option_flag < 6 or option_flag == 7:
             while True:
                 try:
                     size = int(input("Enter number of structures > "))
@@ -216,15 +212,16 @@ def main():
                 except ValueError:
                     exit("Invalid Value")
 
-        if option_flag < 5:
+        if option_flag < 5 or option_flag == 7:
             try:
                 input_type = int(input("""Type of Dataset to Analyse:
                 [1] - ml_data (.txt)
                 [2] - md_data (.txt)
                 [3] - qm_data (.out)
                 [4] - External.
+                [5] - pdb_file (.pdb)
                 > """))
-                if input_type > 4 or input_type < 1:
+                if input_type > 5 or input_type < 1:
                     exit("Invalid Value")
             except ValueError:
                 exit("Invalid Value")
@@ -262,6 +259,14 @@ def main():
                 input_dir = "/Users/user/datasets"
                 mol = read_input.Molecule()
                 read_input.Dataset(mol, size, init, space, input_dir, "ext")
+
+            elif input_type == 5:
+                input_dir = "pdb_file"
+                mol = read_input.Molecule()
+                read_input.Dataset(mol, 0, init, space, input_dir, "pdb")
+                reorder_atoms = True
+                if reorder_atoms:
+                    pass
 
         elif option_flag == 5:
 
@@ -460,6 +465,20 @@ def main():
 
             print("Plotting 2D free energy surface...")
             write_output.heatmap2D(x, y, FE, output_dir, "fes", "RdBu", 0)
+
+        elif option_flag == 7:
+            network = Network(mol)
+            print("Loading a trained model...")
+            input_dir = "trained_model"
+            isExist = os.path.exists(input_dir)
+            if not isExist:
+                print("ERROR - previously trained model could not be located.")
+                exit()
+
+            model = network.load(mol, input_dir)
+            indices = [*range(mol.coords.shape[0])]
+            prediction = network.predict(model, mol, indices)
+            print(prediction[0].flatten())
 
     elif input_flag == 4:
         option_flag = int(input("""Generate a New Dataset...
