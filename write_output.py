@@ -181,16 +181,14 @@ def heatmap2D(x, y, z, output_dir, file, cmap, map_type):
 def gau(mol, coords, output_dir, opt, CV_list):
 
     # if optimisations requested we also need to read in opt text sections
+    gaussian = open(f"./gaussian.txt", "r")
+    text = gaussian.read().strip('\n')
+
+    # if doing constrained optimisation read in torsional CVs
     if opt:
-        gaussian_opt = open(f"./gaussian_opt.txt", "r")
-        text = gaussian_opt.read().strip('\n')
         CV_list = [i + 1 for i in CV_list]
         CV_text = " \n" + " ".join(str(i) for i in CV_list) + " B \n" \
             + " ".join(str(i) for i in CV_list) + " F \n"
-    else:
-        # read input text section
-        gaussian_spe = open(f"./gaussian_spe.txt", "r")
-        text = gaussian_spe.read().strip('\n')
 
     # create QM input files
     for item in range(len(coords)):

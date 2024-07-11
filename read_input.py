@@ -495,12 +495,17 @@ def pdb(input_dir, n_atom):
     size = 0
     max_size = 100000
     coords = np.zeros((max_size, n_atom, 3))
+    # re-order atoms, required because PairNet imposes arbitrary atom ordering
+    reorder_atoms = True
+    if reorder_atoms:
+        atom_mapping = np.loadtxt(f"./{input_dir}/pdb_mapping.dat", dtype=int)
     for line in pdb_file:
         # count number of structures
         if "HEADER" in line:
             coord_block = list(islice(pdb_file, 4 + n_atom))[-n_atom:]
             for i_atom, atom in enumerate(coord_block):
-                coords[size, i_atom] = atom.strip('\n').split()[-6:-3]
+                index = atom_mapping[i_atom]
+                coords[size, index] = atom.strip('\n').split()[-6:-3]
             size = size + 1
 
     return coords[:size]

@@ -264,9 +264,6 @@ def main():
                 input_dir = "pdb_file"
                 mol = read_input.Molecule()
                 read_input.Dataset(mol, 0, init, space, input_dir, "pdb")
-                reorder_atoms = True
-                if reorder_atoms:
-                    pass
 
         elif option_flag == 5:
 
@@ -479,6 +476,8 @@ def main():
             indices = [*range(mol.coords.shape[0])]
             prediction = network.predict(model, mol, indices)
             print(prediction[0].flatten())
+            print(prediction[1].flatten())
+            print(prediction[2].flatten())
 
     elif input_flag == 4:
         option_flag = int(input("""Generate a New Dataset...
@@ -487,6 +486,7 @@ def main():
              [3] - ...by Structure Selection using Distance Matrix RMSD (D).
              [4] - ...by Random Structure Selection.
              [5] - ...by Merging Two Existing Datasets.
+             [6] - ...using CSD System (Mogul).
              > """))
 
         if option_flag == 1:
@@ -755,6 +755,10 @@ def main():
                 for fname in filenames:
                     with open(fname) as infile:
                         outfile.write(infile.read())
+
+        if option_flag == 6:
+            #TODO: CSD system here.
+            pass
 
     elif input_flag == 5:
         print("Reformat an Existing Dataset.")

@@ -434,4 +434,13 @@ class Network(object):
         coords = np.take(mol.coords, indices, axis=0)
         atoms = np.tile(atoms, (len(coords), 1))
         prediction = model.predict([coords, atoms])
+
+        # TODO: currently for zero total charge
+        corr = np.zeros([len(prediction[0])])
+        # calculate predicted net charge of each test structure
+        for s in range(len(prediction[0])):
+            corr[s] = (sum(prediction[2][s]) - 0) / mol.n_atom
+            for atm in range(mol.n_atom):
+                prediction[2][s][atm] = prediction[2][s][atm] - corr[s]
+
         return prediction
