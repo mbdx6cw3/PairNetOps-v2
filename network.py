@@ -331,19 +331,6 @@ class Network(object):
                             test_output_q.flatten(), corr_prediction.flatten(),
                             output_dir, "violin_plot")
 
-        # electrostatic energy test output
-        # TODO: remove this. Pointless.
-        '''
-        elec_prediction = analysis.electrostatic_energy(corr_prediction, test_coords)
-        test_output_elec = np.take(mol.elec_energies, mol.test, axis=0)
-        mean_ae, max_ae, L = Network.summary(self, test_output_elec.flatten(),
-            elec_prediction.flatten(), output_dir, "E_elec", 1.0)
-        print(f"E_elec (kcal mol^-1): {mean_ae:7.4f}  | {max_ae:7.4f}  | {L:6.1f} ")
-        np.savetxt(f"./{output_dir}/elec_test.dat", np.column_stack((
-            test_output_elec.flatten(), elec_prediction.flatten())),
-            delimiter=" ", fmt="%.6f")
-        '''
-
         return None
 
 

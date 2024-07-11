@@ -62,7 +62,7 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
         np.column_stack((CV, partial_charge)), delimiter=" ", fmt="%.6f")
 
     means, edges, counts = binned_statistic(CV, partial_charge,
-        statistic='min', bins=72, range=(-180.0, 180.0))
+        statistic='mean', bins=72, range=(-180.0, 180.0))
     bin_width = edges[1] - edges[0]
     bin_centers = edges[1:] - bin_width / 2
     write_output.lineplot(bin_centers, means, "linear", x_label,
@@ -515,6 +515,7 @@ def rotate_dihedral(mol, CV_list):
             old_coords = coord[i_angle][rot_list[i_atm]][:] - coord[i_angle][CV_list[2]][:]
             # rotate old coordinates using rotation matrix and shift to old origin
             coord[i_angle][rot_list[i_atm]][:] = np.matmul(mat_rot, old_coords) + coord[i_angle][CV_list[2]][:]
+        p[0:] = coord[i_angle][CV_list[:]]
 
     return coord
 

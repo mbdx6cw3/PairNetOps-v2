@@ -745,6 +745,7 @@ def main():
         [1] - qm_data (.out)
         [2] - ml_data (.txt)
         [3] - md_data (.txt)
+        [4] - pdb_file (.pdb)
         > """))
         print()
 
@@ -783,6 +784,10 @@ def main():
             print("Input format: .txt")
             input_dir = "md_data"
 
+        elif input_format == 4:
+            print("Input format: .pdb")
+            input_dir = "pdb_file"
+
         else:
             print("Error - Invalid Value")
             exit()
@@ -799,6 +804,9 @@ def main():
 
         elif input_format == 2 or input_format == 3:
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
+
+        elif input_format ==4:
+            read_input.Dataset(mol, 0, init, space, input_dir, "pdb")
 
         if output_format == 1:
             print("Output format: .gjf")

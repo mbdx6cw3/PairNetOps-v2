@@ -434,7 +434,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                     n_train[i] = mat_d.shape[0]
                     time = i * md_params["ts"]
-                    f6.write(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
+                    f8.write(f"{time:.2f} {n_train[i]:8d} {rmsd_cut:.3f} {accept_fract:.4f} "
                         f"{' '.join(str(j) for j in print_cover)}\n")
                     print("Surface coverage has converged. Ending MD simulation.")
                     print("Number of steps = ", i)
@@ -551,6 +551,7 @@ def predict_charges(md_params, prediction, charge_model, coords, n_atom,
 
 def check_conv(i, conf_cover, conv_time):
     n_surf = conf_cover.shape[0]
+    converged = False
     if np.all(conf_cover[:, i] == 100.0):
         converged = True
     else:

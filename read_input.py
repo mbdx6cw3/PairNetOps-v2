@@ -43,8 +43,9 @@ class Dataset():
             self.atoms.append(int(atom))
             self.atom_names.append(element[self.atoms[-1]])
         self.n_atom = len(self.atoms)
-        size = tot_size - init
+
         if format == "txt":
+            size = tot_size - init
             self.energies = np.reshape(np.loadtxt(f"./{input_dir}/energies.txt",
                 max_rows=size, skiprows=init), (size))
             if len(self.energies) < size:
@@ -66,7 +67,7 @@ class Dataset():
                 (size, self.n_atom))
 
         elif format == "gau":
-
+            size = tot_size - init
             self.coords, self.energies, self.forces, self.charges, error = \
                 gau(size, space, input_dir, self.n_atom)
             if error:
@@ -74,6 +75,7 @@ class Dataset():
                 exit()
 
         elif format == "ext":
+            size = tot_size - init
             try:
                 inp_vsn = input("""Enter the dataset version:
                     [1] - original MD17
@@ -112,6 +114,13 @@ class Dataset():
                 self.energies = dataset["energies"]
                 self.forces = dataset["forces"]
                 self.charges = np.zeros((size, self.n_atom))
+
+        elif format == "pdb":
+            self.coords = pdb(input_dir, self.n_atom)
+            size = self.coords.shape[0]
+            self.energies = np.zeros(size)
+            self.forces = np.zeros((size, self.n_atom, 3))
+            self.charges = np.zeros((size, self.n_atom))
 
         self.elec_energies = analysis.electrostatic_energy(self.charges, self.coords)
 
@@ -390,7 +399,7 @@ def gau(set_size, set_space, input_dir, n_atom):
                     error_term[i_file] = True
                     break
 
-            # if no forces it's probably an optimisation
+            # if no forces it's either an optimisation or an error
             if "force_block" not in locals():
                 zero_forces = True
             else:
@@ -479,3 +488,19 @@ def fes(input_dir):
                     break
     input.close()
     return FE, n_bins
+
+
+def pdb(input_dir, n_atom):
+    pdb_file = open(f"./{input_dir}/conformers.pdb", "r")
+    size = 0
+    max_size = 100000
+    coords = np.zeros((max_size, n_atom, 3))
+    for line in pdb_file:
+        # count number of structures
+        if "HEADER" in line:
+            coord_block = list(islice(pdb_file, 4 + n_atom))[-n_atom:]
+            for i_atom, atom in enumerate(coord_block):
+                coords[size, i_atom] = atom.strip('\n').split()[-6:-3]
+            size = size + 1
+
+    return coords[:size]
