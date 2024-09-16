@@ -486,7 +486,6 @@ def main():
              [3] - ...by Structure Selection using Distance Matrix RMSD (D).
              [4] - ...by Random Structure Selection.
              [5] - ...by Merging Two Existing Datasets.
-             [6] - ...using CSD System (Mogul).
              > """))
 
         if option_flag == 1:
@@ -755,10 +754,6 @@ def main():
                 for fname in filenames:
                     with open(fname) as infile:
                         outfile.write(infile.read())
-
-        if option_flag == 6:
-            #TODO: CSD system here.
-            pass
 
     elif input_flag == 5:
         print("Reformat an Existing Dataset.")

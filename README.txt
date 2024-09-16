@@ -3,132 +3,124 @@ PairNetOps
 INTRODUCTION
 --------------------------------------------------------------------------------
 This package can be used for the following tasks:
-1. Prepare input files for MD simulations.
-2. Run MD simulations using and empirical or machine learned potential.
-3. Analyse MD simulation trajectories.
-4. Prepare input from QM calculations from MD simulation output.
-5. Convert and Analyse QM calculation data.
-6. Train and Test ANNs
-7. Query external datasets.
-8. Generate torsional scan QM input.
+1. Run MD simulations using empirical or machine learned potentials.
+2. Train or Test machine learned potentials according to the PairNet scheme.
+3. Analyse datasets.
+4. Modify datasets.
 
 LOCATION
 --------------------------------------------------------------------------------
 The code for version is located on the CSF here:
     /mnt/iusers01/rb01/mbdx6cw3/bin/PairNetOps_v2/
 
-SETUP
+INSTALLATION AND SETUP
 --------------------------------------------------------------------------------
-Before running a job, you first need to correctly set up your environment to
-run the code. Setup a new Conda environment using the following commands:
 
-1)  Load Anaconda.
-    >   module load apps/binapps/anaconda3/2022.10
+1)  Install Mamba - quicker, easier and more robust than conda:
+    Mamba installation instructions: https://github.com/conda-forge/miniforge
+    wget https://github.com/conda-forge/miniforge/releases/latest/download/Mambaforge-Linux-x86_64.sh
+    bash Mambaforge-Linux-x86_64.sh ---> yes to initialise at the end (add executables to the path)
 
-2)  Create a separate Conda environment for running PairNetOps.
-    >   conda create -n pair-net-ops python==3.9.13
+2)  Create a separate Mamba environment for running PairNetOps.
+    > mamba create -n pair-net-ops python==3.11.5
 
-3)  Activate the Conda environment.
-    >   source activate pair-net-ops
+2)  Activate the Mamba environment.
+    > mamba activate pair-net-ops
 
-4)  Install Mamba (faster and less buggy than conda for package management).
-    Alternative is to use conda to install everything.
-    >   conda install -c conda-forge mamba
+4)  Install CUDA (GPU install only).
+    > mamba install -c anaconda cudatoolkit==11.8.0
 
-5)  Install some required basic Python packages.
-    >   mamba install matplotlib numpy
+5)  Install Packages
+    > mamba install -c conda-forge openmm==8.0.0 openmmtools openmm-plumed matplotlib
 
-STEPS 6) onwards are different depending on whether you want to install GPU version...
+6)  Install Tensorflow
+   CPU install:
+    > pip install tensorflow==2.12.0
+   GPU install:
+    > pip install --isolated nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.0
+    > mamba install -c nvidia cuda-nvcc --yes
+    > mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice/
+    > cp -p $CONDA_PREFIX/lib/libdevice.10.bc $CONDA_PREFIX/lib/nvvm/libdevice/
+    > python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
 
-6)  Install OpenMM packages and specific version of Cuda (for running MD simulations)
-    >   mamba install openmm openmm-plumed openmmtools cudatoolkit=11.8.0
-
-7)  Install Tensorflow (for training, loading and testing PairFENet MLPs)
-    a) CPU only install of tensorflow...
-        >   pip install tensorflow==2.12.0
-
-    b) GPU install of tensorflow...
-        i)      Install tensorflow
-        >   pip install --isolated nvidia-cudnn-cu11==8.6.0.163 tensorflow==2.12.0
-
-        ii)     Extra steps to fix bug in tensorflow 2.11 and 2.12.
-        >   conda install -c nvidia cuda-nvcc --yes
-        >   mkdir -p $CONDA_PREFIX/lib/nvvm/libdevice/
-        >   cp -p $CONDA_PREFIX/lib/libdevice.10.bc $CONDA_PREFIX/lib/nvvm/libdevice/
-
-        iii)    Verify that Tensorflow can find the GPUs:
-        >   python3 -c "import tensorflow as tf; print(tf.config.list_physical_devices('GPU'))"
-
-8)  Install OpenMM-ML (needed to simulate with ANI). By default installing
-    openmm-ml may install incompatible versions of pytorch (cpu) and openmm-torch (cuda).
-    See discussion here: https://github.com/openmm/openmm-torch/issues/94
-    Override and enforce cuda installation of pytorch using:
-    >   CONDA_OVERRIDE_CUDA="11.8" mamba install openmm-ml pytorch=*=*cuda*
 
 USING THE CODE
 --------------------------------------------------------------------------------
+
 Run PairNetOps.
-        Interactively:
+        Interactive:
         > python3 main.py
 
         From a job script (e.g.):
-        > { echo "1"; echo "1"; } | python3 /mnt/iusers01/rb01/mbdx6cw3/bin/PairNetOps_v2/main.py
+        > { echo "1"; echo "1"; } | python3 main.py
 
-Many options require the molecule's nuclear_charges.txt file so it's a good idea
-to have this wherever you are running the code from.
+Available options.
+    [1] - Run a Molecular Dynamics Simulation.
+            [1] - Use an Empirical Potential.
+            [2] - Use PairNet
 
-Current capabilities and input options:
+    [2] - Train or Test a PairNet Potential.
+            [1] - Train a network.
+            [2] - Train and test a network.
+            [3] - Load and train a network.
+            [4] - Load, train and test a network.
+            [5] - Load and test a network.
+            [6] - Load network and predict.
 
-[1] Run a MD simulation using OpenMM. Recommend to submit to batch.
-Requires md_params.txt input file and input.gro and input.top gromacs format
-coordinate and topology files.
-    [1] Use an empirical potential.
-    [2] Use a PairFENet trained machine learned potential.
-    [3] Use ANI-2x.
-        [GPU] - run on GPU
-        [CPU] - run on CPU
+    [3] - Analyse an Existing Dataset.
+            [1] - Analyse Forces and Energies.
+            [2] - Assess Stability.
+            [3] - Analyse Geometry.
+                Analysis to Perform:
+                [1] - Get energy vs geometric variable.
+                [2] - Get root mean squared deviation of distance matrix.
+                [3] - Get 1D probability distribution of geometric variable.
+                [4] - Get 2D probability distribution of geometric variable.
+                [5] - Get 3D probability distribution of geometric variable.
+            [4] - Analyse Charges.
+                [1] Calculate mean partial charges.
+                [2] Calculate partial charge probability distribution.
+                [3] Calculate partial charge vs geometric variable.
+                [4] Calculate intramolecular electrostatic potential energy.
+            [5] - Compare Datasets.
+            [6] - Calculate Multidimensional Free Energy Surface.
+            [7] - Make Prediction with a PairNet Potential.
 
-[2] Analyse MD output. Recommended to use interactively.
-    [1] - Calculate force S-curve.
-    [2] - Calculate force error distribution.
-    [3] - Calculate energy correlation.
-    [4] - Calculate dihedral angle probability distributions.
-    [5] - Calculate 2D free energy surface.
+            Type of Dataset to Analyse:
+                [1] - ml_data (.txt)
+                [2] - md_data (.txt)
+                [3] - qm_data (.out)
+                [4] - External.
+                [5] - pdb_file (.pdb)
 
-[3] Convert MD output into QM input. Recommended to use interactively.
-You will need a gaussian_spe.txt file if generating input files for single
-point energy files and a gaussian_opt.txt file if generating input files for
-optimisation.
+    [4] - Generate a New Dataset.
+             [1] - ...by Dihedral Rotation.
+             [2] - ...by Structure Selection using Index List.
+             [3] - ...by Structure Selection using Distance Matrix RMSD (D).
+             [4] - ...by Random Structure Selection.
+             [5] - ...by Merging Two Existing Datasets.
+             [6] - ...using CSD System (Mogul).
 
-[4] Analyse QM output. Recommended to use interactively.
-    [1] - Calculate force and energy probability distributions.
-    [2] - Calculate inter-atomic pairwise force components (q).
-    [3] - Calculate energy wrt to geometric variable.
-    [4] - Calculate distance matrix RMSD.
+            Input format:
+            [1] - qm_data (.out)
+            [2] - ml_data (.txt)
+            [3] - md_data (.txt)
 
-[5] Convert QM output into ML or MD input. Recommended to submit to batch.
-    [1] - Convert to ML input.
-    You will need a permutations.txt file if doing permutational shuffling.
-    [2] - Convert to MD input (.gro format).
+    [5] - Reformat an Existing Dataset.
+        Input format:
+        [1] - qm_data (.out)
+        [2] - ml_data (.txt)
+        [3] - md_data (.txt)
+        [4] - pdb_file (.pdb)
 
-[6] Train or Test an ANN. Recommend to submit to batch.
-You will need ann_params.txt input file.
-    [1] - Train a network.
-    [2] - Train and test a network.
-    [3] - Load and train a network.
-    [4] - Load, train and test a network.
-    [5] - Load and test a network.
+        Output format:
+        [1] - qm_data (.gjf)
+        [2] - ml_data (.txt)
+        [3] - gro_files (.gro)
+        [4] - pdb_files (.pdb)
+        [5] - MACE (.xyz)
 
-[7] Query external dataset. Recommended to use interactively.
-This tool is used to query the MD17/rMD17 datasets and calculate pairwise
-distance, bend angle and dihedral angle distributions between selected atoms.
-    [1] - original MD17
-    [2] - revised MD17
-
-You will need to consult the relevant mapping.dat file for connectivity.
-Outputs: .png image and output.csv file.
-
-[8] Generate torsional scan QM input. Recommended to use interactively.
-You will need a mol_1.out input file with the initial structure.
-
+CITATION:   Stable and Accurate Atomistic Simulations of Flexible Molecules using
+            Conformationally Generalisable Machine Learned Potentials, CD Williams,
+            J Kalayan, NA Burton and RA Bryce, Chem. Sci., 2024, 15, 12780-12795.
 --------------------------------------------------------------------------------
