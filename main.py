@@ -828,7 +828,7 @@ def main():
         elif input_format == 2 or input_format == 3:
             read_input.Dataset(mol, size, init, space, input_dir, "txt")
 
-        elif input_format ==4:
+        elif input_format == 4:
             read_input.Dataset(mol, 0, init, space, input_dir, "pdb")
 
         if output_format == 1:
@@ -874,11 +874,10 @@ def main():
         elif output_format == 4:
             write_output.pdb(mol, output_dir, "none")
         elif output_format == 5:
-            # unit conversions (kcal/mol --> eV)
+            # unit conversions for MACE compatibility (kcal/mol --> eV)
             mol.energies = mol.energies / 23.0605548
             mol.forces = mol.forces / 23.060548
             write_output.xyz(mol, output_dir)
-
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':

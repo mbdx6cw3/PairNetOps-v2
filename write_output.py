@@ -184,6 +184,10 @@ def gau(mol, coords, output_dir, opt, CV_list):
     gaussian = open(f"./gaussian.txt", "r")
     text = gaussian.read().strip('\n')
 
+    if "charge" in text:
+        charges = np.reshape(np.loadtxt("md_data/background_charges.txt",
+            dtype=float), (len(coords), -1, 4))
+
     # if doing constrained optimisation read in torsional CVs
     if opt:
         CV_list = [i + 1 for i in CV_list]
@@ -192,15 +196,24 @@ def gau(mol, coords, output_dir, opt, CV_list):
 
     # create QM input files
     for item in range(len(coords)):
-
         new_text = text.replace("index", f"{item+1}")
         coord_text = ""
+        charge_text = ""
         for atom in range(mol.n_atom):
             coord_atom = f"{mol.atom_names[atom]} " \
                          f"{coords[item,atom,0]:.8f} " \
                          f"{coords[item,atom,1]:.8f} " \
                          f"{coords[item,atom,2]:.8f} \n"
             coord_text = coord_text + coord_atom
+        if "charge" in text:
+            coord_text = coord_text + "\n"
+            for atom in range(charges.shape[1]):
+                charge_atom = f"{charges[item,atom,0]:.8f} " \
+                         f"{charges[item,atom,1]:.8f} " \
+                         f"{charges[item,atom,2]:.8f} " \
+                         f"{charges[item,atom,3]:.8f} \n"
+                charge_text = charge_text + charge_atom
+            coord_text = coord_text + charge_text
 
         if opt:
             coord_text = coord_text + CV_text

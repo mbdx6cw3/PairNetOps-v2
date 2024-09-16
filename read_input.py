@@ -378,6 +378,7 @@ def gau(set_size, set_space, input_dir, n_atom):
 
     # loop over all Gaussian files, extract energies, forces and coordinates
     for i_file in range(set_size):
+        energies_found = False
         if ((i_file) % set_space) == 0:
             error_term[i_file] = False
             qm_file = open(f"./{input_dir}/mol_{i_file+1}.out", "r")
@@ -385,9 +386,11 @@ def gau(set_size, set_space, input_dir, n_atom):
                 # extract atomic coordinates
                 if "Input orientation:" in line:
                     coord_block = list(islice(qm_file, 4+n_atom))[-n_atom:]
-                # extract energies, convert to kcal/mol
-                if "SCF Done:  E(RB3LYP) =" in line:
-                    energies[i_file] = (float(line.split()[4]))*627.509608
+                if not energies_found:
+                    # extract energies, convert to kcal/mol
+                    if "SCF Done:  E(RB3LYP) =" in line:
+                        energies[i_file] = (float(line.split()[4]))*627.509608
+                        energies_found = True
                 # extract forces
                 if "Axes restored to original set" in line:
                     force_block = list(islice(qm_file, 4+n_atom))[-n_atom:]

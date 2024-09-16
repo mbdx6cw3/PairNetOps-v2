@@ -28,7 +28,7 @@ def charge_dist(mol, index, set_size, output_dir):
     charge = np.empty(shape=[set_size])
     for item in range(set_size):
         charge[item] = mol.charges[item][index]
-    hist, bin = np.histogram(charge,50,(np.min(charge),np.max(charge)))
+    hist, bin = np.histogram(charge,200,(np.min(charge),np.max(charge)))
     bin = bin[range(1, bin.shape[0])]
     bin_width = bin[1] - bin[0]
     write_output.lineplot(bin, hist / bin_width / set_size, "linear",
@@ -43,6 +43,8 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
     partial_charge = mol.charges[:,index]
     CV_list = atom_indices
     CV = np.empty(shape=[set_size])
+    count = 0
+    sum_charge = np.zeros(mol.n_atom)
     for item in range(set_size):
         p = np.zeros([len(CV_list), 3])
         p[0:] = mol.coords[item][CV_list[:]]
@@ -56,13 +58,31 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
             x_label = "$\u03C6_{ijkl} (degrees)$"
             CV[item] = dihedral(p)
 
+    '''
+            if CV[item] < -20 and CV[item] > -100:
+                count = count + 1
+                for index in range(mol.n_atom):
+                    sum_charge[index] = sum_charge[index] + mol.charges[item][index]
+
+            if (CV[item] > 20 and CV[item] < 100):
+                count = count + 1
+                for index in range(mol.n_atom):
+                    sum_charge[index] = sum_charge[index] + mol.charges[item][index]
+
+
+    print(count)
+    sum_charge = sum_charge / count
+    print(sum_charge)
+    exit()
+    '''
+
     write_output.scatterplot(CV, partial_charge, "linear", x_label,
         "partial charge (e)", f"charge_geom_scatter_{index}", output_dir)
     np.savetxt(f"./{output_dir}/charge_geom_scatter_{index}.dat",
         np.column_stack((CV, partial_charge)), delimiter=" ", fmt="%.6f")
 
     means, edges, counts = binned_statistic(CV, partial_charge,
-        statistic='mean', bins=72, range=(-180.0, 180.0))
+        statistic='mean', bins=23, range=(2.8, 5.0)) #TODO: set mean an max sensibly
     bin_width = edges[1] - edges[0]
     bin_centers = edges[1:] - bin_width / 2
     write_output.lineplot(bin_centers, means, "linear", x_label,
@@ -529,6 +549,7 @@ def generate_rotation_matrix(angle, axis):
 
 
 def get_interatomic_charges(self):
+    # TODO: remove all this, not used
     '''
     This function takes molecule coords (C), atomic charges (Q) and
     nuclear charges (Z) and decomposes atomic charges with a 1/r bias.
