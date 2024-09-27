@@ -25,6 +25,7 @@ def setup(force_field):
     os.makedirs(output_dir)
 
     temp = md_params["temp"]
+    pressure = md_params["pressure"]
     ts = md_params["ts"]
     ensemble = md_params["ensemble"]
     thermostat = md_params["thermostat"]
@@ -90,7 +91,9 @@ def setup(force_field):
     # define ensemble, thermostat and integrator
     if ensemble == "nve":
         integrator = VerletIntegrator(ts*picoseconds)
-    elif ensemble == "nvt":
+    if ensemble == "npt":
+        system.addForce(MonteCarloBarostat(pressure*bar, temp*kelvin))
+    if ensemble == "nvt" or ensemble == "npt":
         if thermostat == "nose_hoover":
             integrator = integrators.NoseHooverChainVelocityVerletIntegrator\
                 (system, temp*kelvin, coll_freq / picosecond, ts*picoseconds, 10, 5, 5)
@@ -99,7 +102,6 @@ def setup(force_field):
         elif thermostat == "langevin":
             integrator = LangevinMiddleIntegrator(temp*kelvin,
                 coll_freq / picosecond, ts*picoseconds)
-            # TODO: what is the difference between picoseconds and picosecond?
 
     # define biasing potentials
     if md_params["bias"]:
@@ -117,7 +119,7 @@ def setup(force_field):
         simulation.minimizeEnergy()
 
     # select initial velocities from MB distribution
-    if ensemble == "nvt":
+    if ensemble == "nvt" or ensemble == "npt":
         simulation.context.setVelocitiesToTemperature(temp*kelvin)
 
     return simulation, system, md_params, gro, top, ml_force, output_dir
@@ -199,8 +201,6 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     PE = state.getPotentialEnergy() / kilocalories_per_mole
     print("Initial Potential Energy: ", PE, "kcal/mol")
 
-    side_length = gro.getUnitCellDimensions()[0].value_in_unit(angstrom)
-
     for i in range(max_steps):
 
         coords = simulation.context.getState(getPositions=True). \
@@ -276,15 +276,27 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 np.savetxt(f7, MM_forces[:ligand_n_atom])
 
         if (i % print_trj) == 0:
+            side_length = state.getPeriodicBoxVectors(asNumpy=True)[0,0] / nanometer
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
             vels = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
             coords = simulation.context.getState(getPositions=True,
                 enforcePeriodicBox=True).getPositions(asNumpy=True).\
                 value_in_unit(nanometer)
-            vectors = [side_length/10]*3
+            vectors = [side_length]*3
             write_output.grotrj(tot_n_atom, residues, vectors, time,
-                coords, vels, gro.atomNames, output_dir, "output")
+                coords, vels, gro.atomNames, output_dir, "traj")
+
+    # print final state to .gro
+    side_length = state.getPeriodicBoxVectors(asNumpy=True)[0, 0] / nanometer
+    time = simulation.context.getState().getTime().in_units_of(picoseconds)
+    vels = simulation.context.getState(getVelocities=True). \
+        getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
+    coords = simulation.context.getState(getPositions=True,
+        enforcePeriodicBox=True).getPositions(asNumpy=True).value_in_unit(nanometer)
+    vectors = [side_length] * 3
+    write_output.grotrj(tot_n_atom, residues, vectors, time,
+                        coords, vels, gro.atomNames, output_dir, "final")
 
     f1.close()
     f2.close()

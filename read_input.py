@@ -257,11 +257,11 @@ def md(input_file):
         print("***ERROR: Invalid temperature")
         exit()
     params["ensemble"] = str(params["ensemble"])
-    accepted_strings = ["nve", "nvt"]
+    accepted_strings = ["nve", "nvt", "npt"]
     if params["ensemble"] not in accepted_strings:
         print("***ERROR: ensemble type not accepted")
         exit()
-    if params["ensemble"] == "nvt":
+    if params["ensemble"] == "nvt" or params["ensemble"] == "npt":
         params["thermostat"] = str(params["thermostat"])
         accepted_strings = ["langevin", "nose_hoover"]
         if params["thermostat"] not in accepted_strings:
@@ -271,6 +271,12 @@ def md(input_file):
             params["coll_freq"] = float(params["coll_freq"])
         except ValueError:
             print("***ERROR: Invalid temperature")
+            exit()
+    if params["ensemble"] == "npt":
+        try:
+            params["pressure"] = int(params["pressure"])
+        except ValueError:
+            print("***ERROR: Invalid pressure")
             exit()
     try:
         params["ts"] = float(params["ts"])
