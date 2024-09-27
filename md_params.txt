@@ -2,26 +2,42 @@
 temp = 300
 
 # ensemble (nve or nvt)
-ensemble = nvt
+ensemble = npt
 
 # thermostat (langevin or nose_hoover)
-thermostat = nose_hoover
-coll_freq = 50
+thermostat = langevin
+coll_freq = 1
+
+# pressure (bar)
+pressure = 1
 
 # timestep (picoseconds)
 ts = 0.001
 
 # number of steps
-n_steps = 11000000
+max_steps = 10000
 
 # frequency of output printing
 print_trj = 1000
 print_data = 1000
 print_summary = 1000
 
+partial_charge = fixed
+net_charge = 0.0
+
 # minimisation
-minim = True
+minim = False
 
 # metadynamics?
-bias = True
+bias = False
+
+force_capping = False
+dynamic_cutoff = False
+
+# adaptive sampling?
+adaptive_sampling = False
+shuffle_perm = False
+
+# monitor coverage?
+cover_conv = False
 
