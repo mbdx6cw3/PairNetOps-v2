@@ -25,7 +25,6 @@ def setup(force_field):
     os.makedirs(output_dir)
 
     temp = md_params["temp"]
-    pressure = md_params["pressure"]
     ts = md_params["ts"]
     ensemble = md_params["ensemble"]
     thermostat = md_params["thermostat"]
@@ -92,6 +91,7 @@ def setup(force_field):
     if ensemble == "nve":
         integrator = VerletIntegrator(ts*picoseconds)
     if ensemble == "npt":
+        pressure = md_params["pressure"]
         system.addForce(MonteCarloBarostat(pressure*bar, temp*kelvin))
     if ensemble == "nvt" or ensemble == "npt":
         if thermostat == "nose_hoover":
