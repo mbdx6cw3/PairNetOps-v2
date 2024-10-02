@@ -43,8 +43,6 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
     partial_charge = mol.charges[:,index]
     CV_list = atom_indices
     CV = np.empty(shape=[set_size])
-    count = 0
-    sum_charge = np.zeros(mol.n_atom)
     for item in range(set_size):
         p = np.zeros([len(CV_list), 3])
         p[0:] = mol.coords[item][CV_list[:]]
@@ -57,24 +55,6 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
         elif len(CV_list) == 4:
             x_label = "$\u03C6_{ijkl} (degrees)$"
             CV[item] = dihedral(p)
-
-    '''
-            if CV[item] < -20 and CV[item] > -100:
-                count = count + 1
-                for index in range(mol.n_atom):
-                    sum_charge[index] = sum_charge[index] + mol.charges[item][index]
-
-            if (CV[item] > 20 and CV[item] < 100):
-                count = count + 1
-                for index in range(mol.n_atom):
-                    sum_charge[index] = sum_charge[index] + mol.charges[item][index]
-
-
-    print(count)
-    sum_charge = sum_charge / count
-    print(sum_charge)
-    exit()
-    '''
 
     write_output.scatterplot(CV, partial_charge, "linear", x_label,
         "partial charge (e)", f"charge_geom_scatter_{index}", output_dir)
@@ -293,7 +273,7 @@ def pop2D(mol, n_bins, CV_list, output_dir, set_size):
     return None
 
 
-def pop3D(mol, n_bins, CV_list, output_dir, set_size):
+def pop3D(mol, n_bins, CV_list, set_size):
     bin_width = 360 / n_bins
     pop = np.zeros(shape=(n_bins, n_bins, n_bins))
     for item in range(set_size):
@@ -313,6 +293,29 @@ def pop3D(mol, n_bins, CV_list, output_dir, set_size):
                 if pop[i][j][k] != 0:
                     count += 1
     print("% of surface populated:", 100*count /(n_bins*n_bins*n_bins))
+    return None
+
+def pop4D(mol, n_bins, CV_list, set_size):
+    bin_width = 360 / n_bins
+    pop = np.zeros(shape=(n_bins, n_bins, n_bins, n_bins))
+    for item in range(set_size):
+        bin = np.empty(shape=[CV_list.shape[0]], dtype=int)
+        for i_dih in range(CV_list.shape[0]):
+            p = np.zeros([CV_list.shape[1], 3])
+            p[0:] = mol.coords[item][CV_list[i_dih][:]]
+            bin[i_dih] = int((dihedral(p) + 180) / bin_width)
+            if bin[i_dih] == n_bins:  # this deals with 360 degree angles
+                bin[i_dih] = 0
+        pop[bin[3]][bin[2]][bin[1]][bin[0]] += 1
+    pop = pop / (set_size)
+    count = 0
+    for i in range(n_bins):
+        for j in range(n_bins):
+            for k in range(n_bins):
+                for l in range(n_bins):
+                    if pop[i][j][k][l] != 0:
+                        count += 1
+    print("% of surface populated:", 100*count /(n_bins*n_bins*n_bins*n_bins))
     return None
 
 

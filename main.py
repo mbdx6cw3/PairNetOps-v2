@@ -305,9 +305,10 @@ def main():
             geom_flag = int(input("""Analysis to Perform:
             [1] - Get energy vs geometric variable.
             [2] - Get root mean squared deviation of distance matrix.
-            [3] - Get 1D probability distribution of geometric variable.
-            [4] - Get 2D probability distribution of geometric variable.
-            [5] - Get 3D probability distribution of geometric variable.
+            [3] - Get 1D probability distribution of geometric variable and torsion surface coverage.
+            [4] - Get 2D probability distribution of geometric variable and torsion surface coverage.
+            [5] - Get 3D torsion surface coverage.
+            [6] - Get 4D torsion surface coverage.
             > """))
 
             if geom_flag == 1:
@@ -347,7 +348,13 @@ def main():
                 print("Get 3D probability distribution of geometric variable.")
                 n_bins = int(input("Enter the number of bins > "))
                 CV_list = analysis.getCVs(3)
-                analysis.pop3D(mol, n_bins, CV_list, output_dir, size)
+                analysis.pop3D(mol, n_bins, CV_list, size)
+
+            elif geom_flag ==6:
+                print("Get 4D probability distribution of geometric variable.")
+                n_bins = int(input("Enter the number of bins > "))
+                CV_list = analysis.getCVs(4)
+                analysis.pop4D(mol, n_bins, CV_list, size)
 
         elif option_flag == 4:
 
