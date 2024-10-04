@@ -381,9 +381,13 @@ def gau(set_size, set_space, input_dir, n_atom):
     charges = np.empty(shape=[set_size, n_atom])
     error_term = np.empty(shape=[set_size], dtype=bool)
     error = False
+    b3lyp = False
+    mp2 = True
 
     # loop over all Gaussian files, extract energies, forces and coordinates
     for i_file in range(set_size):
+        # energies_found switch is important - allows user to specify
+        # whether the last energy is used (optimisation) or first energy (single point)
         energies_found = False
         if ((i_file) % set_space) == 0:
             error_term[i_file] = False
@@ -394,9 +398,15 @@ def gau(set_size, set_space, input_dir, n_atom):
                     coord_block = list(islice(qm_file, 4+n_atom))[-n_atom:]
                 if not energies_found:
                     # extract energies, convert to kcal/mol
-                    if "SCF Done:  E(RB3LYP) =" in line:
-                        energies[i_file] = (float(line.split()[4]))*627.509608
-                        energies_found = True
+                    if b3lyp:
+                        if "SCF Done:  E(RB3LYP) =" in line:
+                            energies[i_file] = (float(line.split()[4]))*627.509608
+                            energies_found = True
+                    elif mp2:
+                        if "EUMP2 =" in line:
+                            items = line.split()[5]
+                            energies[i_file] = float(items.replace("D", "E"))*627.509608
+                            energies_found = True
                 # extract forces
                 if "Axes restored to original set" in line:
                     force_block = list(islice(qm_file, 4+n_atom))[-n_atom:]
