@@ -305,8 +305,8 @@ def main():
             geom_flag = int(input("""Analysis to Perform:
             [1] - Get energy vs geometric variable.
             [2] - Get root mean squared deviation of distance matrix.
-            [3] - Get 1D probability distribution of geometric variable and torsion surface coverage.
-            [4] - Get 2D probability distribution of geometric variable and torsion surface coverage.
+            [3] - Get 1D probability distribution of geometric variable (and torsion surface coverage).
+            [4] - Get 2D probability distribution of geometric variable (and torsion surface coverage).
             [5] - Get 3D torsion surface coverage.
             [6] - Get 4D torsion surface coverage.
             > """))

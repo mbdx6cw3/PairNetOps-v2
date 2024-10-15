@@ -382,7 +382,8 @@ def gau(set_size, set_space, input_dir, n_atom):
     error_term = np.empty(shape=[set_size], dtype=bool)
     error = False
     b3lyp = False
-    mp2 = True
+    mp2 = False
+    ccsd_t = True
 
     # loop over all Gaussian files, extract energies, forces and coordinates
     for i_file in range(set_size):
@@ -406,6 +407,12 @@ def gau(set_size, set_space, input_dir, n_atom):
                         if "EUMP2 =" in line:
                             items = line.split()[5]
                             energies[i_file] = float(items.replace("D", "E"))*627.509608
+                            energies_found = True
+                    elif ccsd_t:
+                        if "CCSD(T)= " in line:
+                            items = line.split()[1]
+                            energies[i_file] = float(
+                                items.replace("D", "E")) * 627.509608
                             energies_found = True
                 # extract forces
                 if "Axes restored to original set" in line:

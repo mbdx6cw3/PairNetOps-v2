@@ -262,6 +262,7 @@ def pop2D(mol, n_bins, CV_list, output_dir, set_size):
                 bin[i_dih] = 0
         pop[bin[1]][bin[0]] += 1
     pop = pop / (set_size)
+    #pop[pop==0] = np.nan
     x, y = np.meshgrid(np.linspace(-180, 180, n_bins), np.linspace(-180, 180, n_bins))
     write_output.heatmap2D(x, y, pop, output_dir, "pop_2d", "gist_heat", 1)
     count = 0
