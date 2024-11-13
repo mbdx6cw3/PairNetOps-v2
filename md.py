@@ -124,6 +124,7 @@ def setup(force_field):
 
     return simulation, system, md_params, gro, top, ml_force, output_dir
 
+
 def simulate(simulation, system, force_field, md_params, gro, top, ml_force, output_dir):
 
     max_steps = md_params["max_steps"]
@@ -218,6 +219,13 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 np.reshape(ligand_atoms,(1, -1))])
             ML_forces = prediction[0]
 
+            # exit simulation if any predicted forces are greater than threshold
+            if np.any(ML_forces >= 1000.0):
+                print(f"Error - predicted force exceed stability threshold in step {i}")
+                print(ML_forces)
+                print("Ending simulation...")
+                break
+
             # convert to OpenMM internal units
             ML_forces = np.reshape(ML_forces*kilocalories_per_mole/angstrom, (-1, 3))
 
@@ -231,7 +239,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 # assign predicted charges to ML atoms
                 nbforce = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
                 for j in range(ligand_n_atom):
-                    [old_charge, sigma,epsilon] = nbforce.getParticleParameters(j)
+                    [old_charge, sigma, epsilon] = nbforce.getParticleParameters(j)
                     nbforce.setParticleParameters(j, ligand_charges[j], sigma, epsilon)
                     charges[j] = ligand_charges[j]  # TODO: units???
                 nbforce.updateParametersInContext(simulation.context)
@@ -287,17 +295,6 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             write_output.grotrj(tot_n_atom, residues, vectors, time,
                 coords, vels, gro.atomNames, output_dir, "traj")
 
-    # print final state to .gro
-    side_length = state.getPeriodicBoxVectors(asNumpy=True)[0, 0] / nanometer
-    time = simulation.context.getState().getTime().in_units_of(picoseconds)
-    vels = simulation.context.getState(getVelocities=True). \
-        getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
-    coords = simulation.context.getState(getPositions=True,
-        enforcePeriodicBox=True).getPositions(asNumpy=True).value_in_unit(nanometer)
-    vectors = [side_length] * 3
-    write_output.grotrj(tot_n_atom, residues, vectors, time,
-                        coords, vels, gro.atomNames, output_dir, "final")
-
     f1.close()
     f2.close()
     f3.close()
@@ -306,6 +303,10 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     if force_field == "pair_net":
         f6.close()
         f7.close()
+
+    # print final state to .gro
+    print("Printing final state...")
+    print_final(state, simulation, tot_n_atom, residues, gro, output_dir)
     return None
 
 
@@ -347,3 +348,17 @@ def permute(ligand_coords, n_perm_grp, perm_atm, n_symm, n_symm_atm):
                 ligand_coords[0, new_perm[i_atm] - 1] = temp_coord
 
     return ligand_coords
+
+
+def print_final(state, simulation, tot_n_atom, residues, gro, output_dir):
+    side_length = state.getPeriodicBoxVectors(asNumpy=True)[0, 0] / nanometer
+    time = simulation.context.getState().getTime().in_units_of(picoseconds)
+    vels = simulation.context.getState(getVelocities=True). \
+        getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
+    coords = simulation.context.getState(getPositions=True,
+                                         enforcePeriodicBox=True).getPositions(
+        asNumpy=True).value_in_unit(nanometer)
+    vectors = [side_length] * 3
+    write_output.grotrj(tot_n_atom, residues, vectors, time,
+                        coords, vels, gro.atomNames, output_dir, "final")
+    return

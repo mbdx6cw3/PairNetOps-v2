@@ -185,6 +185,8 @@ class Network(object):
 
 
     def train(self, model, mol, ann_params, output_dir1, output_dir2):
+
+        '''
         # ensures that tensorflow does not use more cores than requested
         NUMCORES = int(os.getenv("NSLOTS", 1))
         sess = tf.compat.v1.Session(
@@ -192,6 +194,7 @@ class Network(object):
                 inter_op_parallelism_threads=NUMCORES,
                 allow_soft_placement=True, device_count={'CPU': NUMCORES}))
         tf.compat.v1.keras.backend.set_session(sess)
+        '''
 
         # prepare training and validation data
         atoms = np.array([float(i) for i in mol.atoms], dtype='float32')

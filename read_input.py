@@ -72,7 +72,7 @@ class Dataset():
                 gau(size, space, input_dir, self.n_atom)
             if error:
                 print("WARNING - some Gaussian jobs did not terminate correctly.")
-                exit()
+                #exit()
 
         elif format == "ext":
             size = tot_size - init
@@ -381,9 +381,9 @@ def gau(set_size, set_space, input_dir, n_atom):
     charges = np.empty(shape=[set_size, n_atom])
     error_term = np.empty(shape=[set_size], dtype=bool)
     error = False
-    b3lyp = False
+    b3lyp = True
     mp2 = False
-    ccsd_t = True
+    ccsd_t = False
 
     # loop over all Gaussian files, extract energies, forces and coordinates
     for i_file in range(set_size):
