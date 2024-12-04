@@ -31,13 +31,9 @@ def setup(force_field):
     minim = md_params["minim"]
     coll_freq = md_params["coll_freq"]
     gro = GromacsGroFile(f"{input_dir}/input.gro")
-    if md_params["background_charges"]:
-        nonbondedmethod = NoCutoff
-        top = GromacsTopFile(f"{input_dir}/input.top")
-    else:
-        nonbondedmethod = PME
-        top = GromacsTopFile(f"{input_dir}/input.top",
-                             periodicBoxVectors=gro.getPeriodicBoxVectors())
+    nonbondedmethod = PME
+    top = GromacsTopFile(f"{input_dir}/input.top",
+                         periodicBoxVectors=gro.getPeriodicBoxVectors())
 
     # for rigid water to be found the water residue name must be "HOH"
     system = top.createSystem(nonbondedMethod=nonbondedmethod, nonbondedCutoff=1*nanometer,
@@ -273,12 +269,29 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         simulation.step(1)
 
         if (i % print_data) == 0:
+
+            # if using background charges we need to wrap coordinates and shift so that amine is at centre
+            if md_params["background_charges"]:
+                # get box length
+                side_length = state.getPeriodicBoxVectors(asNumpy=True)[0, 0] / angstrom
+                coords = simulation.context.getState(getPositions=True,
+                    enforcePeriodicBox=False).getPositions(asNumpy=True). \
+                    value_in_unit(angstrom)
+                # shift ligand box so that ligand is in the centre
+                coords[:][:] = coords[:][:] - coords[0][:] + (side_length / 2)
+                # wrap coordinates
+                coords = coords - np.floor(coords / side_length) * side_length
+                # write background charge coordinates
+                background_charges = np.hstack((charges[:, np.newaxis], coords))
+                ligand_coords = np.reshape(coords[:ligand_n_atom], (1, -1, 3))
+            else:
+                ligand_coords = np.reshape(coords[:ligand_n_atom] / angstrom, (1, -1, 3))
+
             state = simulation.context.getState(getEnergy=True)
             vels = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
             forces = simulation.context.getState(getForces=True). \
                 getForces(asNumpy=True).in_units_of(kilocalories_per_mole / angstrom)
-            ligand_coords = np.reshape(coords[:ligand_n_atom] / angstrom, (1, -1, 3))
 
             # predicts energies in kcal/mol
             if force_field == "pair_net":
@@ -295,7 +308,6 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
                 np.savetxt(f6, ML_forces[:ligand_n_atom])
                 np.savetxt(f7, MM_forces[:ligand_n_atom])
             if md_params["background_charges"]:
-                background_charges = np.hstack((charges[:,np.newaxis], coords/angstrom))
                 np.savetxt(f8, background_charges[ligand_n_atom:])
 
         if (i % print_trj) == 0:
@@ -303,14 +315,9 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
             vels = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
-            if md_params["background_charges"]:
-                periodic = False
-                vectors = [0] * 3
-            else:
-                periodic = True
-                vectors = [side_length] * 3
+            vectors = [side_length] * 3
             coords = simulation.context.getState(getPositions=True,
-                enforcePeriodicBox=periodic).getPositions(asNumpy=True).\
+                enforcePeriodicBox=True).getPositions(asNumpy=True).\
                 value_in_unit(nanometer)
             write_output.grotrj(tot_n_atom, residues, vectors, time,
                 coords, vels, gro.atomNames, output_dir, "traj")
