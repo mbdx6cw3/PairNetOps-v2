@@ -196,6 +196,9 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         f6 = open(f"./{output_dir}/ML_forces.txt", 'w')
         f7 = open(f"./{output_dir}/MM_forces.txt", 'w')
 
+    if md_params["background_charges"]:
+        f8 = open(f"./{output_dir}/background_charges.txt", 'w')
+
     # run MD simulation for requested number of timesteps
     print("Performing MD simulation...")
     state = simulation.context.getState(getEnergy=True)
@@ -222,7 +225,11 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             # exit simulation if any predicted forces are greater than threshold
             if np.any(ML_forces >= 1000.0):
                 print(f"Error - predicted force exceed stability threshold in step {i}")
+                print("Final forces:")
                 print(ML_forces)
+                print()
+                print("Final energy:")
+                print(prediction[1][0][0])
                 print("Ending simulation...")
                 break
 
@@ -282,6 +289,9 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             if force_field == "pair_net":
                 np.savetxt(f6, ML_forces[:ligand_n_atom])
                 np.savetxt(f7, MM_forces[:ligand_n_atom])
+            if md_params["background_charges"]:
+                background_charges = np.hstack((charges[:,np.newaxis], coords/angstrom))
+                np.savetxt(f8, background_charges[ligand_n_atom:])
 
         if (i % print_trj) == 0:
             side_length = state.getPeriodicBoxVectors(asNumpy=True)[0,0] / nanometer

@@ -361,6 +361,11 @@ def md(input_file):
     elif params["cover_conv"].strip() == "True":
         params["cover_conv"] = True
 
+    if params["background_charges"].strip() == "False":
+        params["background_charges"] = False
+    elif params["background_charges"].strip() == "True":
+        params["background_charges"] = True
+
     if params["cover_conv"]:
         try:
             params["n_bin"] = int(params["n_bin"])
