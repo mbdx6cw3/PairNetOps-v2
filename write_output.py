@@ -207,19 +207,19 @@ def gau(mol, coords, output_dir, opt, CV_list):
                          f"{coords[item,atom,2]:.8f} \n"
             coord_text = coord_text + coord_atom
         if "charge" in text:
-            coord_text = coord_text + "\n"
             for atom in range(charges.shape[1]):
                 charge_atom = f"{charges[item,atom,0]:.8f} " \
                          f"{charges[item,atom,1]:.8f} " \
                          f"{charges[item,atom,2]:.8f} " \
                          f"{charges[item,atom,3]:.8f} \n"
                 charge_text = charge_text + charge_atom
-            coord_text = coord_text + charge_text
+            #coord_text = coord_text + charge_text
 
         if opt:
             coord_text = coord_text + CV_text
 
         new_text = new_text.replace("COORDS", coord_text)
+        new_text = new_text.replace("CHARGES", charge_text)
         qm_file = open(f"./{output_dir}/mol_{item+1}.gjf", "w")
         print(new_text, file=qm_file)
         print(file=qm_file)
