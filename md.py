@@ -31,12 +31,17 @@ def setup(force_field):
     minim = md_params["minim"]
     coll_freq = md_params["coll_freq"]
     gro = GromacsGroFile(f"{input_dir}/input.gro")
-    top = GromacsTopFile(f"{input_dir}/input.top",
-        periodicBoxVectors=gro.getPeriodicBoxVectors())
+    if md_params["background_charges"]:
+        nonbondedmethod = NoCutoff
+        top = GromacsTopFile(f"{input_dir}/input.top")
+    else:
+        nonbondedmethod = PME
+        top = GromacsTopFile(f"{input_dir}/input.top",
+                             periodicBoxVectors=gro.getPeriodicBoxVectors())
 
     # for rigid water to be found the water residue name must be "HOH"
-    system = top.createSystem(nonbondedMethod=PME, nonbondedCutoff=1*nanometer,
-        constraints=None, removeCMMotion=True,rigidWater=True, switchDistance=None)
+    system = top.createSystem(nonbondedMethod=nonbondedmethod, nonbondedCutoff=1*nanometer,
+        constraints=None, removeCMMotion=True, rigidWater=True, switchDistance=None)
 
     print("Checking simulation setup...")
     print()
@@ -298,10 +303,15 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
             vels = simulation.context.getState(getVelocities=True).\
                 getVelocities(asNumpy=True).value_in_unit(nanometer / picoseconds)
+            if md_params["background_charges"]:
+                periodic = False
+                vectors = [0] * 3
+            else:
+                periodic = True
+                vectors = [side_length] * 3
             coords = simulation.context.getState(getPositions=True,
-                enforcePeriodicBox=True).getPositions(asNumpy=True).\
+                enforcePeriodicBox=periodic).getPositions(asNumpy=True).\
                 value_in_unit(nanometer)
-            vectors = [side_length]*3
             write_output.grotrj(tot_n_atom, residues, vectors, time,
                 coords, vels, gro.atomNames, output_dir, "traj")
 
