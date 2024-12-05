@@ -208,10 +208,10 @@ def gau(mol, coords, output_dir, opt, CV_list):
             coord_text = coord_text + coord_atom
         if "charge" in text:
             for atom in range(charges.shape[1]):
-                charge_atom = f"{charges[item,atom,0]:.8f} " \
-                         f"{charges[item,atom,1]:.8f} " \
+                charge_atom = f"{charges[item,atom,1]:.8f} " \
                          f"{charges[item,atom,2]:.8f} " \
-                         f"{charges[item,atom,3]:.8f} \n"
+                         f"{charges[item,atom,3]:.8f} " \
+                         f"{charges[item,atom,0]:.8f} \n"
                 charge_text = charge_text + charge_atom
             #coord_text = coord_text + charge_text
 
