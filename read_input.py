@@ -422,8 +422,8 @@ def gau(set_size, set_space, input_dir, n_atom):
                 # extract forces
                 if "Axes restored to original set" in line:
                     force_block = list(islice(qm_file, 4+n_atom))[-n_atom:]
-                # extract charges
-                if "ESP charges:" in line:
+                # extract ESP charges
+                if "ESP charges:" in line or "Hirshfeld charges," in line:
                     charge_block = list(islice(qm_file, 1+n_atom))[-n_atom:]
                 # assess termination state
                 if "Error termination" in line:
