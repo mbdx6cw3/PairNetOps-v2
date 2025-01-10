@@ -118,9 +118,9 @@ def xyz(mol, output_dir):
     For a given set of structure 3D coords and the atom
     associated numbers, output xyz format.
     '''
-    xyz_file = open(f"./{output_dir}/data.xyz", "w")
 
     for item in range(len(mol.energies)):
+        xyz_file = open(f"./{output_dir}/mol_{item+1}.xyz", "w")
         xyz_file.write(f"{mol.coords.shape[1]}\n")
         xyz_file.write(f"\"Lattice=50.0 0.0 0.0 0.0 50.0 0.0 0.0 0.0 50.0\" "
                        f"Properties=species:S:1:pos:R:3:forces:R:3 "
@@ -130,7 +130,7 @@ def xyz(mol, output_dir):
             f = mol.forces[item][atom]
             xyz_file.write('{:4} {:11.6f} {:11.6f} {:11.6f} {:11.6} {:11.6} {:11.6}\n'.format(
                     mol.atom_names[atom], r[0], r[1], r[2], f[0], f[1], f[2]))
-    xyz_file.close()
+        xyz_file.close()
     return None
 
 

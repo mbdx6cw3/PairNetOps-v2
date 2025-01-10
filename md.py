@@ -145,6 +145,8 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
     residues = list(top.topology.residues())
     ligand_n_atom = len(list(residues[0].atoms()))
 
+    md_params["background_charges"] = False
+
     if force_field == "pair_net":
 
         # this is necessary to tell tensorflow to use CPU and GPU when building/predicting
@@ -241,6 +243,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             if md_params["partial_charge"] != "fixed":
 
                 # predict charges
+                #print(net_charge)
                 ligand_charges = predict_charges(md_params, prediction, charge_model,
                     coords, ligand_n_atom, ligand_atoms, net_charge)
 
@@ -350,6 +353,9 @@ def predict_charges(md_params, prediction, charge_model, coords, n_atom,
             [np.reshape(coords[:n_atom] / angstrom, (1, -1, 3)),
              np.reshape(ligand_atoms, (1, -1))])
         ligand_charges = charge_prediction[2].T
+
+    net_charge = sum(ligand_charges[:,0])
+    net_charge = round(net_charge)
 
     # correct predicted partial charges so that ligand has correct net charge
     corr = (sum(ligand_charges) - net_charge) / n_atom
