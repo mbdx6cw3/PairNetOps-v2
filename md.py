@@ -31,12 +31,11 @@ def setup(force_field):
     minim = md_params["minim"]
     coll_freq = md_params["coll_freq"]
     gro = GromacsGroFile(f"{input_dir}/input.gro")
-    nonbondedmethod = PME
     top = GromacsTopFile(f"{input_dir}/input.top",
                          periodicBoxVectors=gro.getPeriodicBoxVectors())
 
     # for rigid water to be found the water residue name must be "HOH"
-    system = top.createSystem(nonbondedMethod=nonbondedmethod, nonbondedCutoff=1*nanometer,
+    system = top.createSystem(nonbondedMethod=CutoffPeriodic, nonbondedCutoff=1*nanometer,
         constraints=None, removeCMMotion=True, rigidWater=True, switchDistance=None)
 
     print("Checking simulation setup...")
@@ -243,7 +242,6 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             if md_params["partial_charge"] != "fixed":
 
                 # predict charges
-                #print(net_charge)
                 ligand_charges = predict_charges(md_params, prediction, charge_model,
                     coords, ligand_n_atom, ligand_atoms, net_charge)
 
@@ -271,7 +269,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         # advance trajectory one timestep
         simulation.step(1)
 
-        if (i % print_data) == 0:
+        if ((i+1) % print_data) == 0:
 
             # if using background charges we need to wrap coordinates and shift so that amine is at centre
             if md_params["background_charges"]:
@@ -313,7 +311,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
             if md_params["background_charges"]:
                 np.savetxt(f8, background_charges[ligand_n_atom:])
 
-        if (i % print_trj) == 0:
+        if ((i+1) % print_trj) == 0:
             side_length = state.getPeriodicBoxVectors(asNumpy=True)[0,0] / nanometer
             time = simulation.context.getState().getTime().in_units_of(picoseconds)
             vels = simulation.context.getState(getVelocities=True).\
