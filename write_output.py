@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
 
-plt.rcParams["font.size"] = 20
+plt.rcParams["font.size"] = 14
 #plt.rcParams["font.family"] = "Times New Roman"
 plt.rcParams['mathtext.fontset'] = 'custom'
 #plt.rcParams['mathtext.it'] = 'Times New Roman' #italic?
@@ -266,7 +266,7 @@ def violin(force_ref, force_pred, energy_ref, energy_pred, charge_ref, charge_pr
     means = False
     colors = ["silver", "wheat", "lightblue"]
     edge_color = "black"
-    labels = ["forces", "energies", "charges"]
+    labels = ["energies", "forces", "charges"]
     plot = ax.violinplot(dataset=rse, showextrema=extrema, showmeans=means)
     ax.set_ylim((-1, 1))
     ax.set_xticks([y + 1 for y in range(len(rse))], labels=labels)
