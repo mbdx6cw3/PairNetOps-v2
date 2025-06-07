@@ -64,6 +64,7 @@ def setup(force_field):
     print("PME separation parameter: ", pme_alpha)
     print("Number of PME grid points along each axis: ", pme_nx, pme_ny, pme_nz)
     print("Ewald Gaussian width: ", alpha_ewald)
+    print("Total number of exceptions: ", nb.getNumExceptions())
 
     if force_field == "empirical":
         ml_force = None
@@ -102,6 +103,19 @@ def setup(force_field):
         elif thermostat == "langevin":
             integrator = LangevinMiddleIntegrator(temp*kelvin,
                 coll_freq / picosecond, ts*picoseconds)
+        elif thermostat == "langevin-drude":
+            integrator = DrudeLangevinIntegrator(temp*kelvin, coll_freq / picosecond,
+                1.0*kelvin, 20/picosecond, ts*picoseconds)
+            # set Drude hard wall
+            integrator.setMaxDrudeDistance(0.02)
+            # add Drude particles
+            drude_force = DrudeForce()
+            for atom in top.topology.atoms():
+                if atom.name == "DW":
+                    drude_force.addParticle(atom.index, atom.index-3, -1, -1, -1,
+                        Quantity(value=-1.3828, unit=elementary_charge),
+                        Quantity(value=0.000635, unit=nanometer**3), 0.0, 0.0)
+            system.addForce(drude_force)
 
     # define biasing potentials
     if md_params["bias"]:
@@ -113,6 +127,14 @@ def setup(force_field):
     # set up simulation
     simulation = Simulation(top.topology, system, integrator)
     simulation.context.setPositions(gro.positions)
+    '''
+    state = simulation.context.getState(getEnergy=True)
+    PE = state.getPotentialEnergy() / kilocalories_per_mole
+    print("Initial Potential Energy: ", PE, "kcal/mol")
+    for i, f in enumerate(system.getForces()):
+        state = simulation.context.getState(getEnergy=True, groups={i})
+        print(f.getName(), state.getPotentialEnergy() / kilocalories_per_mole)
+    '''
 
     # minimise initial configuration
     if minim:

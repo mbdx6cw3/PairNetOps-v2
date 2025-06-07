@@ -263,7 +263,7 @@ def md(input_file):
         exit()
     if params["ensemble"] == "nvt" or params["ensemble"] == "npt":
         params["thermostat"] = str(params["thermostat"])
-        accepted_strings = ["langevin", "nose_hoover"]
+        accepted_strings = ["langevin", "nose_hoover", "langevin-drude"]
         if params["thermostat"] not in accepted_strings:
             print("***ERROR: thermostat type not accepted")
             exit()

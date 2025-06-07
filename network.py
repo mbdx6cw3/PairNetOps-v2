@@ -291,11 +291,13 @@ class Network(object):
             test_output_F.flatten(), test_prediction[0].flatten())),
             delimiter=" ", fmt="%.6f")
 
-        # test conformational distribution of force errors
+        # test conformational distribution of errors
+        '''
         if conf_test:
             CV_list = analysis.getCVs(2)
-            analysis.error2D(test_coords, CV_list, output_dir,
+            analysis.forceerror2D(test_coords, CV_list, output_dir,
                 test_output_F, test_prediction[0])
+        '''
 
         # energy test output
         test_output_E = np.take(mol.orig_energies, mol.test, axis=0)
@@ -305,6 +307,12 @@ class Network(object):
         np.savetxt(f"./{output_dir}/e_test.dat", np.column_stack((
             test_output_E.flatten(), test_prediction[1].flatten())),
             delimiter=", ", fmt="%.6f")
+
+        # test conformational distribution of errors
+        if conf_test:
+            CV_list = analysis.getCVs(2)
+            analysis.energyerror2D(test_coords, CV_list, output_dir,
+                               test_output_E.flatten(), test_prediction[1].flatten())
 
         # charge test output
         test_output_q = np.take(mol.charges, mol.test, axis=0)

@@ -62,7 +62,7 @@ def charge_CV(mol, index, atom_indices, set_size, output_dir):
         np.column_stack((CV, partial_charge)), delimiter=" ", fmt="%.6f")
 
     means, edges, counts = binned_statistic(CV, partial_charge,
-        statistic='mean', bins=23, range=(2.8, 5.0)) #TODO: set mean an max sensibly
+        statistic='mean', bins=18, range=(-180.0, 180.0)) #TODO: set mean and max sensibly
     bin_width = edges[1] - edges[0]
     bin_centers = edges[1:] - bin_width / 2
     write_output.lineplot(bin_centers, means, "linear", x_label,
@@ -639,8 +639,8 @@ def electrostatic_energy(charges, coords):
     return (elec*(1.0e10)*(6.022e23)*(1.602e-19)**2)/4.184/1000/8.854e-12
 
 
-def error2D(coords, CV_list, output_dir, ref, pred):
-    n_bins = 36
+def forceerror2D(coords, CV_list, output_dir, ref, pred):
+    n_bins = 18
     bin_width = 360 / n_bins
     pop = np.zeros(shape=(n_bins, n_bins))
     n_atom = coords.shape[1]
@@ -661,6 +661,28 @@ def error2D(coords, CV_list, output_dir, ref, pred):
     x, y = np.meshgrid(np.linspace(-180, 180, n_bins),
         np.linspace(-180, 180, n_bins))
     write_output.heatmap2D(x, y, bin_error, output_dir, "error_2d", "cividis", 2)
+    return None
+
+
+def energyerror2D(coords, CV_list, output_dir, ref, pred):
+    n_bins = 18
+    bin_width = 360 / n_bins
+    pop = np.zeros(shape=(n_bins, n_bins))
+    bin_tot = np.zeros(shape=(n_bins, n_bins))
+    for item in range(len(coords)):
+        bin = np.empty(shape=[CV_list.shape[0]], dtype=int)
+        for i_dih in range(CV_list.shape[0]):
+            p = np.zeros([CV_list.shape[1], 3])
+            p[0:] = coords[item][CV_list[i_dih][:]]
+            bin[i_dih] = int((dihedral(p) + 180) / bin_width)
+        pop[bin[1]][bin[0]] += 1
+        error = abs(ref[item] - pred[item])
+        bin_tot[bin[1]][bin[0]] += error
+    with np.errstate(divide='ignore'): #TODO: why doesnt this work?
+        bin_error = bin_tot / pop
+    x, y = np.meshgrid(np.linspace(-180, 180, n_bins),
+        np.linspace(-180, 180, n_bins))
+    write_output.heatmap2D(x, y, bin_error, output_dir, "error_2d", "plasma", 2)
     return None
 
 

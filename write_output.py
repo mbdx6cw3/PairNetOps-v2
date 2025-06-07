@@ -2,11 +2,11 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import numpy as np
 
-plt.rcParams["font.size"] = 14
-#plt.rcParams["font.family"] = "Times New Roman"
-plt.rcParams['mathtext.fontset'] = 'custom'
-#plt.rcParams['mathtext.it'] = 'Times New Roman' #italic?
-#plt.rcParams['mathtext.rm'] = 'Times New Roman'
+plt.rcParams["font.size"] = 24
+plt.rcParams["font.family"] = "Times New Roman"
+plt.rcParams['mathtext.fontset'] = "custom"
+plt.rcParams['mathtext.it'] = 'Times New Roman' #italic?
+plt.rcParams['mathtext.rm'] = 'Times New Roman'
 
 def lineplot(x, y, type, x_label, y_label, title, output_dir):
     fig, ax = plt.subplots()
@@ -161,21 +161,26 @@ def heatmap2D(x, y, z, output_dir, file, cmap, map_type):
     fig, ax = plt.subplots()
     if map_type == 0:       # free energy map
         c = ax.pcolormesh(x, y, z, cmap=cmap)
+        z_label = ""
     elif map_type == 1:     # population map
         z_max = z.max()
         c = ax.pcolormesh(x, y, z, norm=colors.LogNorm(vmin=0.00001,vmax=z_max),
              cmap=cmap)
+        z_label = ""
     #    c = ax.pcolormesh(x, y, z, cmap="gist_heat", vmin=0.0,vmax=0.2)
     elif map_type == 2:     # force error map
-        c = ax.pcolormesh(x, y, z, cmap=cmap, vmin=0.0, vmax=1.0)
+        z_max = z.max()
+        c = ax.pcolormesh(x, y, z, cmap=cmap, vmin=0.0, vmax=0.3)
+        #z_label = "MAE (kcal $mol^{-1}$ $\AA^{-1}$)"
+        z_label = "MAE (kcal $mol^{-1}$)"
     ax.axis([x.min(), x.max(), y.min(), y.max()])
-    x_label = "$\u03C6$ ($\u00b0$)"
-    y_label = "$\u03C8$ ($\u00b0$)"
+    x_label = "$\u03C6_{1}$ ($\u00b0$)"
+    y_label = "$\u03C6_{2}$ ($\u00b0$)"
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     ax.set_xticks([-180, -90, 0, 90, 180])
     ax.set_yticks([-180, -90, 0, 90, 180])
-    fig.colorbar(c, ax=ax)
+    fig.colorbar(c, ax=ax, label=z_label)
     plt.savefig(f"./{output_dir}/{file}.png", bbox_inches="tight")
     return None
 
@@ -264,17 +269,21 @@ def violin(force_ref, force_pred, energy_ref, energy_pred, charge_ref, charge_pr
     fig, ax = plt.subplots()
     extrema = False
     means = False
-    colors = ["silver", "wheat", "lightblue"]
+    colors = ["r", "b", "g"]
     edge_color = "black"
-    labels = ["energies", "forces", "charges"]
+    labels = ["energy", "force", "charge"]
     plot = ax.violinplot(dataset=rse, showextrema=extrema, showmeans=means)
-    ax.set_ylim((-1, 1))
+    ax.set_ylim((-0.6, 0.6))
     ax.set_xticks([y + 1 for y in range(len(rse))], labels=labels)
     ax.tick_params(bottom=False)
-    ax.set_yticks([-1, -0.5, 0, 0.5, 1])
+    ax.set_yticks([-0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6])
     for pc, color in zip(plot['bodies'], colors):
         pc.set_facecolor(color)
         pc.set_edgecolor(edge_color)
         pc.set_alpha(1)
+        #y_label = "$\u03C6_{2}$ ($\u00b0$)"
+    y_label = "error"
+    plt.ylabel(y_label)
     plt.savefig(f"./{output_dir}/{file}.png", bbox_inches="tight")
     return
+
