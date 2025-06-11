@@ -310,6 +310,13 @@ def md(input_file):
         print("***ERROR: charge scheme not accepted.")
         exit()
 
+    if params["partial_charge"] != "fixed":
+        try:
+            params["charge_scaling"] = float(params["charge_scaling"])
+        except ValueError:
+            print("***ERROR: Invalid printing frequency")
+            exit()
+
     params["net_charge"] = float(params["net_charge"])
 
     if params["minim"].strip() == "False":

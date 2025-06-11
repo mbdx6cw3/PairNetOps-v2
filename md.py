@@ -127,14 +127,6 @@ def setup(force_field):
     # set up simulation
     simulation = Simulation(top.topology, system, integrator)
     simulation.context.setPositions(gro.positions)
-    '''
-    state = simulation.context.getState(getEnergy=True)
-    PE = state.getPotentialEnergy() / kilocalories_per_mole
-    print("Initial Potential Energy: ", PE, "kcal/mol")
-    for i, f in enumerate(system.getForces()):
-        state = simulation.context.getState(getEnergy=True, groups={i})
-        print(f.getName(), state.getPotentialEnergy() / kilocalories_per_mole)
-    '''
 
     # minimise initial configuration
     if minim:
@@ -191,6 +183,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
         # if charges are being predicted enforce ligand net charge
         if md_params["partial_charge"] != "fixed":
             net_charge = md_params["net_charge"]
+            charge_scaling = md_params["charge_scaling"]
             charge_model = False
 
         # load separate network for charge prediction
@@ -265,7 +258,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
                 # predict charges
                 ligand_charges = predict_charges(md_params, prediction, charge_model,
-                    coords, ligand_n_atom, ligand_atoms, net_charge)
+                    coords, ligand_n_atom, ligand_atoms, net_charge, charge_scaling)
 
                 # assign predicted charges to ML atoms
                 nbforce = [f for f in system.getForces() if isinstance(f, NonbondedForce)][0]
@@ -361,7 +354,7 @@ def simulate(simulation, system, force_field, md_params, gro, top, ml_force, out
 
 
 def predict_charges(md_params, prediction, charge_model, coords, n_atom,
-                    ligand_atoms, net_charge):
+                    ligand_atoms, net_charge, charge_scaling):
 
     # get charge prediction from same network as forces / energies
     if md_params["partial_charge"] == "predicted":
@@ -378,9 +371,12 @@ def predict_charges(md_params, prediction, charge_model, coords, n_atom,
     net_charge = round(net_charge)
 
     # correct predicted partial charges so that ligand has correct net charge
+    # then scale them according to user-defined factor
     corr = (sum(ligand_charges) - net_charge) / n_atom
+    scale_corr = (charge_scaling - net_charge) / n_atom
     for atm in range(n_atom):
         ligand_charges[atm] = ligand_charges[atm] - corr
+        ligand_charges[atm] = charge_scaling * ligand_charges[atm] - scale_corr
 
     return ligand_charges
 
@@ -415,3 +411,4 @@ def print_final(state, simulation, tot_n_atom, residues, gro, output_dir):
     write_output.grotrj(tot_n_atom, residues, vectors, time,
                         coords, vels, gro.atomNames, output_dir, "final")
     return
+
