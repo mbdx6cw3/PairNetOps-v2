@@ -287,3 +287,12 @@ def violin(force_ref, force_pred, energy_ref, energy_pred, charge_ref, charge_pr
     plt.savefig(f"./{output_dir}/{file}.png", bbox_inches="tight")
     return
 
+
+def csv(mol, output_dir):
+    coords4csv = np.reshape(mol.coords, (-1,mol.coords.shape[1]*mol.coords.shape[2]))
+    forces4csv = np.reshape(mol.forces, (-1,mol.forces.shape[1]*mol.forces.shape[2]))
+    data = np.column_stack((mol.energies, coords4csv, forces4csv, mol.charges))
+    #TODO: need to write string to go in as header at top of file.
+    np.savetxt(f"{output_dir}/ml_data.csv", data, fmt="%.8f", delimiter=",", header="structures")
+    return None
+

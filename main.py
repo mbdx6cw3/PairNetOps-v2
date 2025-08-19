@@ -780,6 +780,7 @@ def main():
         [3] - gro_files (.gro)
         [4] - pdb_files (.pdb)
         [5] - MACE (.xyz)
+        [6] - single file (.csv)
         > """))
         print()
 
@@ -859,6 +860,10 @@ def main():
             print("Output format: MACE (.xyz)")
             output_dir = "xyz_data"
 
+        elif output_format == 6:
+            print("Output format: CSV (.csv)")
+            output_dir = "csv_data"
+
         # check relevant output directory exists
         isExist = os.path.exists(output_dir)
         if isExist:
@@ -880,6 +885,8 @@ def main():
             mol.energies = mol.energies / 23.0605548
             mol.forces = mol.forces / 23.060548
             write_output.xyz(mol, output_dir)
+        elif output_format == 6:
+            write_output.csv(mol, output_dir)
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
