@@ -289,10 +289,18 @@ def violin(force_ref, force_pred, energy_ref, energy_pred, charge_ref, charge_pr
 
 
 def csv(mol, output_dir):
+    n_atoms = mol.coords.shape[1]
     coords4csv = np.reshape(mol.coords, (-1,mol.coords.shape[1]*mol.coords.shape[2]))
     forces4csv = np.reshape(mol.forces, (-1,mol.forces.shape[1]*mol.forces.shape[2]))
     data = np.column_stack((mol.energies, coords4csv, forces4csv, mol.charges))
-    #TODO: need to write string to go in as header at top of file.
-    np.savetxt(f"{output_dir}/ml_data.csv", data, fmt="%.8f", delimiter=",", header="structures")
+    # write header line for CSV file
+    header = "energy"
+    for i in range(n_atoms):
+        header = header + f", rx_{i}, ry_{i}, rz_{i}"
+    for i in range(n_atoms):
+        header = header + f", fx_{i}, fy_{i}, fz_{i}"
+    for i in range(n_atoms):
+        header = header + f", q_{i}"
+    np.savetxt(f"{output_dir}/ml_data.csv", data, fmt="%.8f", delimiter=",", header=header)
     return None
 
