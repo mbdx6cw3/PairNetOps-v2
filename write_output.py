@@ -296,11 +296,11 @@ def csv(mol, output_dir):
     # write header line for CSV file
     header = "energy"
     for i in range(n_atoms):
-        header = header + f", rx_{i}, ry_{i}, rz_{i}"
+        header = header + f",rx_{i},ry_{i},rz_{i}"
     for i in range(n_atoms):
-        header = header + f", fx_{i}, fy_{i}, fz_{i}"
+        header = header + f",fx_{i},fy_{i},fz_{i}"
     for i in range(n_atoms):
-        header = header + f", q_{i}"
-    np.savetxt(f"{output_dir}/ml_data.csv", data, fmt="%.8f", delimiter=",", header=header)
+        header = header + f",q_{i}"
+    np.savetxt(f"{output_dir}/ml_data.csv", data, fmt="%.8f", delimiter=",", header=header, comments="")
     return None
 
