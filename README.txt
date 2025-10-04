@@ -22,16 +22,16 @@ INSTALLATION AND SETUP
     bash Mambaforge-Linux-x86_64.sh ---> yes to initialise at the end (add executables to the path)
 
 2)  Create a separate Mamba environment for running PairNetOps.
-    > mamba create -n pair-net-ops python==3.11.5
+    > conda create -n pair-net-ops python==3.9
 
 2)  Activate the Mamba environment.
-    > mamba activate pair-net-ops
+    > conda activate pair-net-ops
 
 4)  Install CUDA (GPU install only).
-    > mamba install -c anaconda cudatoolkit==11.8.0
+    > conda install -c anaconda cudatoolkit==11.8.0
 
 5)  Install Packages
-    > mamba install -c conda-forge openmm==8.0.0 openmmtools openmm-plumed matplotlib
+    > conda install -c conda-forge openmm==8.0.0 openmmtools openmm-plumed matplotlib
 
 6)  Install Tensorflow
    CPU install:
