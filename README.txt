@@ -77,7 +77,7 @@ Available options.
                 [3] - Get 1D probability distribution of geometric variable.
                 [4] - Get 2D probability distribution of geometric variable.
                 [5] - Get 3D probability distribution of geometric variable.
-            [4] - Analyse Charges.
+            [4] - Analyse Charges
                 [1] Calculate mean partial charges.
                 [2] Calculate partial charge probability distribution.
                 [3] Calculate partial charge vs geometric variable.
