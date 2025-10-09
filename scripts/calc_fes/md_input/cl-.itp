@@ -1,0 +1,8 @@
+[ moleculetype ]
+; molname       nrexcl
+cl-              2
+
+[ atoms ]
+;   nr   type  resnr residue  atom   cgnr     charge       mass
+     1   Cl   1    cl-     Cl      1     -1.000    35.45300
+

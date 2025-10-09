@@ -1,0 +1,33 @@
+; AMP_GMX.top created by acpype (v: 2022.6.6) on Mon Mar 13 12:33:06 2023
+
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ
+1               2               yes             0.5     0.8333333333
+
+[ atomtypes ]
+;name   bond_type     mass     charge   ptype   sigma         epsilon       Amb
+ n4       n4          0.00000  0.00000   A     3.25000e-01   7.11280e-01 ; 1.82  0.1700
+ c3       c3          0.00000  0.00000   A     3.39967e-01   4.57730e-01 ; 1.91  0.1094
+ ca       ca          0.00000  0.00000   A     3.39967e-01   3.59824e-01 ; 1.91  0.0860
+ hx       hx          0.00000  0.00000   A     1.95998e-01   6.56888e-02 ; 1.10  0.0157
+ hc       hc          0.00000  0.00000   A     2.64953e-01   6.56888e-02 ; 1.49  0.0157
+ ha       ha          0.00000  0.00000   A     2.59964e-01   6.27600e-02 ; 1.46  0.0150
+ hn       hn          0.00000  0.00000   A     1.06908e-01    6.56888e-02 ; 0.60  0.0157
+ OW       OW          0.00000  0.00000   A     3.20777e-01   6.30947e-01
+ HW       HW          0.00000  0.00000   A     0.00000e+00   0.00000e+00
+ DW       DW          0.00000  0.00000   A     0.00000e+00   0.00000e+00
+ Cl       Cl          0.00000  0.00000   A     4.40100e-01   4.18400e-01
+
+; Include molecule topology
+#include "phenylethylamine_ML.itp"
+#include "cl-.itp"
+#include "swm3.itp"
+
+[ system ]
+ PEA
+
+[ molecules ]
+; Compound        nmols
+ PEA              1
+ cl-              1
+ HOH            513   

@@ -1,0 +1,10 @@
+# set up variable for Phi dihedral angle
+# WARNING - atom indices in plumed start from 1 but in openmm start from 0
+phi: TORSION ATOMS=4,3,2,1
+
+# Activate metadynamics in phi depositing a Gaussian every 500 time steps,
+# with height equal to 1.2 kJ/mol, and width 0.35 rad for both CVs. 
+metad: METAD ARG=phi PACE=500 HEIGHT=1.0 SIGMA=0.35 FILE=./md_data/HILLS_1 BIASFACTOR=6.0 TEMP=300.0
+
+# monitor the two variables and the metadynamics bias potential
+PRINT STRIDE=10 ARG=phi,metad.bias FILE=./md_data/COLVAR_1

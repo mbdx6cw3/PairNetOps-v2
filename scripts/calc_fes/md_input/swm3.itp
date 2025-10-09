@@ -1,0 +1,31 @@
+;
+; Polarizable water: SWM3 model
+;
+
+[ moleculetype ]
+; molname          nrexcl
+HOH                        2
+
+[ atoms ]
+; id    type    resnr   resname   at name         cg nr          charge    mass
+1               OW             1               HOH                OW             1              0.7704        15.5994
+2               HW             1               HOH               HW1             1              0.3062        1.0080
+3               HW             1               HOH               HW2             1              0.3062        1.0080
+4               DW             1               HOH                DW             1             -1.3828        0.4000
+
+;[ settles ]
+;  1   1   0.11686  0.19083
+
+[ bonds ]
+; i  j   funct
+  1  2    1 0.11686 462750.4
+  1  3    1 0.11686 462750.4
+
+[ angles ]
+ 2      1       3       1       109.47  836.8
+
+[ exclusions ]
+1 2 3 4
+2 3 4
+3 4
+

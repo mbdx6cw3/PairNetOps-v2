@@ -1,0 +1,30 @@
+; PEA_GMX.top created by acpype (v: 2022.6.6) on Thu Mar  7 16:10:13 2024
+
+[ moleculetype ]
+;name            nrexcl
+ PEA              3
+
+[ atoms ]
+;   nr  type  resi  res  atom  cgnr     charge      mass       ; qtot   bond_type
+     1   n4     1   PEA     N    1     0.000000     14.01000 ; qtot -0.840
+     2   c3     1   PEA     C    2     0.000000     12.01000 ; qtot -0.743
+     3   c3     1   PEA    C1    3     0.000000     12.01000 ; qtot -0.789
+     4   ca     1   PEA    C2    4     0.000000     12.01000 ; qtot -0.926
+     5   ca     1   PEA    C3    5     0.000000     12.01000 ; qtot -1.041
+     6   ca     1   PEA    C4    6     0.000000     12.01000 ; qtot -1.157
+     7   ca     1   PEA    C5    7     0.000000     12.01000 ; qtot -1.252
+     8   ca     1   PEA    C6    8     0.000000     12.01000 ; qtot -1.368
+     9   ca     1   PEA    C7    9     0.000000     12.01000 ; qtot -1.482
+    10   hx     1   PEA     H   10     0.000000      1.00800 ; qtot -1.365
+    11   hx     1   PEA    H1   11     0.000000      1.00800 ; qtot -1.249
+    12   hc     1   PEA    H2   12     0.000000      1.00800 ; qtot -1.177
+    13   hc     1   PEA    H3   13     0.000000      1.00800 ; qtot -1.105
+    14   ha     1   PEA    H4   14     0.000000      1.00800 ; qtot -0.973
+    15   ha     1   PEA    H5   15     0.000000      1.00800 ; qtot -0.820
+    16   ha     1   PEA    H6   16     0.000000      1.00800 ; qtot -0.665
+    17   ha     1   PEA    H7   17     0.000000      1.00800 ; qtot -0.512
+    18   ha     1   PEA    H8   18     0.000000      1.00800 ; qtot -0.380
+    19   hn     1   PEA    H9   19     0.000000      1.00800 ; qtot 0.080
+    20   hn     1   PEA   H10   20     0.000000      1.00800 ; qtot 0.540
+    21   hn     1   PEA   H11   21     0.000000      1.00800 ; qtot 1.000
+
